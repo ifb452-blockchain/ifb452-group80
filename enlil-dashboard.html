@@ -162,15 +162,15 @@
   <div class="contract-banner">
     <div class="contract-info">
       <div class="contract-label">assignId Contract</div>
-      <div class="contract-addr" id="assignIdAddr">Not deployed</div>
-      <div class="contract-status none" id="assignIdStatus">● AWAITING WALLET</div>
+      <div class="contract-addr" id="assignIdAddr">0xd9145CCE52D386f254917e481eB44e9943F39138</div>
+      <div class="contract-status none" id="assignIdStatus">● CONNECT WALLET TO ACTIVATE</div>
     </div>
     <div class="contract-info">
-      <div class="contract-label">WeatherData Contract</div>
-      <div class="contract-addr" id="weatherDataAddr">Not deployed</div>
-      <div class="contract-status none" id="weatherDataStatus">● AWAITING WALLET</div>
+      <div class="contract-label">WeatherData Contract · Sepolia</div>
+      <div class="contract-addr" id="weatherDataAddr">0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8</div>
+      <div class="contract-status none" id="weatherDataStatus">● CONNECT WALLET TO ACTIVATE</div>
     </div>
-    <button class="deploy-btn" id="deployBtn" disabled onclick="deployContracts()">DEPLOY CONTRACTS</button>
+    <button class="deploy-btn" id="deployBtn" disabled>SEPOLIA TESTNET</button>
   </div>
 
   <!-- Sensor selector -->
@@ -373,104 +373,134 @@ const VM = {
   surface_temperature:  { label:'Surface Temp',       unit:'°C',   color:'#ff4d6a', max:70  },
 };
 
+// ===================== HARDCODED SEPOLIA CONTRACTS =====================
+const ASSIGN_ID_ADDRESS   = '0xd9145CCE52D386f254917e481eB44e9943F39138';
+const WEATHER_DATA_ADDRESS = '0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8';
+const SEPOLIA_CHAIN_ID = 11155111n;
+
 let weatherData = {}, activeSensor = SENSORS[0], activeVar = 'temperature_2m';
 let chartCtx = null, blockNumber = 1842930;
 let provider = null, signer = null, walletAddress = null;
 let assignIdContract = null, weatherDataContract = null;
-let assignIdAddress = null, weatherDataAddress = null;
 
-// ===================== ABIs =====================
+// ===================== FULL ABIs =====================
 const ASSIGN_ABI = [
-  "constructor()",
-  "function registerSensor(uint _sensorId, string memory _location) external",
-  "function isSensorRegistered(uint _sensorId) external view returns (bool)",
-  "function sensorCount() view returns (uint)",
-  "function owner() view returns (address)",
-  "event SensorRegistered(uint indexed sensorId, address registeredBy)"
+  {"inputs":[{"internalType":"address","name":"_tech","type":"address"}],"name":"addTechnican","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"string","name":"_location","type":"string"}],"name":"registerSensor","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"_tech","type":"address"}],"name":"removeTechnicians","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"sensorId","type":"uint256"},{"indexed":false,"internalType":"address","name":"registeredBy","type":"address"}],"name":"SensorRegistered","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"tech","type":"address"}],"name":"TechnicianAdded","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"tech","type":"address"}],"name":"TechnicianRemoved","type":"event"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"isSensorRegistered","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"sensorCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"sensors","outputs":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"bool","name":"registered","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"technicians","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"}
 ];
 
 const WEATHER_ABI = [
-  "constructor(address _sensorRegistered)",
-  "function recordWeatherData(uint _sensorId, uint _rain, uint _wind, uint _humidity, uint _pressure, uint _temp, bytes32 _weatherHash) external",
-  "function getLatestRecord(uint _sensorId) external view returns (tuple(uint sensorId,uint rain,uint wind,uint humidity,uint pressure,uint temp,uint timestamp,bytes32 weatherHash))",
-  "function getRecordCount(uint _sensorId) external view returns (uint)",
-  "event WeatherRecorded(uint indexed sensorId, uint timestamp, bytes32 weatherHash)"
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"uint256","name":"_rain","type":"uint256"},{"internalType":"uint256","name":"_wind","type":"uint256"},{"internalType":"uint256","name":"_humidity","type":"uint256"},{"internalType":"uint256","name":"_pressure","type":"uint256"},{"internalType":"uint256","name":"_temp","type":"uint256"},{"internalType":"bytes32","name":"_weatherHash","type":"bytes32"}],"name":"recordWeatherData","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"_sensorRegistered","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"sensorId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"},{"indexed":false,"internalType":"bytes32","name":"weatherHash","type":"bytes32"}],"name":"WeatherRecorded","type":"event"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getLatestRecord","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"}],"internalType":"struct WeatherData.WeatherRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getRecordCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getWeatherHistory","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"}],"internalType":"struct WeatherData.WeatherRecord[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"sensorRegistered","outputs":[{"internalType":"contract assignId_sensorRegistered","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"weatherHistory","outputs":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"}],"stateMutability":"view","type":"function"}
 ];
 
-// ===================== METAMASK =====================
+// ===================== METAMASK + AUTO CONTRACT INIT =====================
 async function connectMetaMask() {
   if (walletAddress) { showToast('Already connected: ' + shortAddr(walletAddress), 'info'); return; }
-  if (!window.ethereum) { showToast('MetaMask not detected. Please install MetaMask.', 'fail'); return; }
+  if (!window.ethereum) { showToast('MetaMask not detected. Please install it from metamask.io', 'fail'); return; }
   try {
     provider = new ethers.BrowserProvider(window.ethereum);
-    const accounts = await provider.send('eth_requestAccounts', []);
-    signer = await provider.getSigner();
-    walletAddress = accounts[0];
 
+    // Request accounts
+    await provider.send('eth_requestAccounts', []);
+    signer = await provider.getSigner();
+    walletAddress = await signer.getAddress();
+
+    // Check we're on Sepolia
+    const network = await provider.getNetwork();
+    if (network.chainId !== SEPOLIA_CHAIN_ID) {
+      showToast('Wrong network — switching to Sepolia…', 'info');
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0xaa36a7' }], // 11155111 in hex
+        });
+        // Re-init provider after switch
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        walletAddress = await signer.getAddress();
+      } catch(switchErr) {
+        showToast('Please switch MetaMask to Sepolia testnet manually.', 'fail');
+        return;
+      }
+    }
+
+    // Update wallet button
     const btn = document.getElementById('mmBtn');
     btn.innerHTML = `<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#00e5a0"/></svg> ${shortAddr(walletAddress)}`;
     btn.classList.add('connected');
 
-    document.getElementById('deployBtn').disabled = false;
-    document.getElementById('contractPanelStatus').textContent = 'WALLET CONNECTED';
-    document.getElementById('contractPanelStatus').style.color = 'var(--green)';
-    setStatus('assign','pending','Wallet ready — deploy or connect');
-    setStatus('weather','pending','Wallet ready — deploy or connect');
-
     showToast('Wallet connected: ' + shortAddr(walletAddress), 'ok');
-    addTxItem('assign','SYSTEM',`wallet connected: ${shortAddr(walletAddress)}`);
+    addTxItem('assign','SYSTEM',`wallet: ${shortAddr(walletAddress)} @ Sepolia`);
 
-    window.ethereum.on('accountsChanged', a => {
-      walletAddress = a[0];
+    // Auto-wire both contracts immediately
+    initContracts();
+
+    // Handle account/network changes
+    window.ethereum.on('accountsChanged', async (accounts) => {
+      walletAddress = accounts[0];
+      signer = await provider.getSigner();
       document.getElementById('mmBtn').innerHTML = `<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#00e5a0"/></svg> ${shortAddr(walletAddress)}`;
+      initContracts();
     });
+    window.ethereum.on('chainChanged', () => window.location.reload());
+
   } catch(e) {
-    showToast('Connection failed: ' + (e.message||e).slice(0,60), 'fail');
+    showToast('Connection failed: ' + (e.message||String(e)).slice(0,80), 'fail');
+    console.error(e);
   }
 }
 
-// ===================== DEPLOY =====================
-async function deployContracts() {
-  if (!signer) { showToast('Connect wallet first.','fail'); return; }
-  const msg = `To deploy the contracts:\n\n1. Open https://remix.ethereum.org\n2. Upload both .sol files\n3. Set compiler to 0.8.x → Compile\n4. Deploy assignId (no constructor args)\n5. Copy its deployed address\n6. Deploy WeatherData, paste assignId address as constructor arg\n7. In this page's browser console, run:\n\n   setContractAddresses('0xAssignIdAddr','0xWeatherDataAddr')\n\nThis connects the UI to your live contracts.`;
-  showToast('See popup for deployment steps', 'info');
-  alert(msg);
-}
+function initContracts() {
+  assignIdContract    = new ethers.Contract(ASSIGN_ID_ADDRESS,    ASSIGN_ABI,   signer);
+  weatherDataContract = new ethers.Contract(WEATHER_DATA_ADDRESS, WEATHER_ABI,  signer);
 
-// ===================== CONNECT EXISTING CONTRACTS =====================
-async function setContractAddresses(aAddr, wAddr) {
-  if (!signer) { alert('Connect MetaMask first'); return; }
-  assignIdAddress = aAddr;
-  weatherDataAddress = wAddr;
-  assignIdContract  = new ethers.Contract(aAddr, ASSIGN_ABI,  signer);
-  weatherDataContract = new ethers.Contract(wAddr, WEATHER_ABI, signer);
+  // Update banner
+  document.getElementById('assignIdAddr').textContent    = ASSIGN_ID_ADDRESS;
+  document.getElementById('weatherDataAddr').textContent = WEATHER_DATA_ADDRESS;
+  setStatus('assign',  'ok', ASSIGN_ID_ADDRESS);
+  setStatus('weather', 'ok', WEATHER_DATA_ADDRESS);
 
-  document.getElementById('assignIdAddr').textContent = aAddr;
-  document.getElementById('weatherDataAddr').textContent = wAddr;
-  setStatus('assign','ok', aAddr);
-  setStatus('weather','ok', wAddr);
-  document.getElementById('deployBtn').textContent = 'CONNECTED ✓';
+  document.getElementById('deployBtn').textContent = 'SEPOLIA ✓';
+  document.getElementById('deployBtn').disabled = true;
   document.getElementById('contractPanelStatus').textContent = 'CONTRACTS LIVE';
   document.getElementById('contractPanelStatus').style.color = 'var(--green)';
+
   updateContractButtons();
-  showToast('Contracts connected!','ok');
-  addTxItem('assign','SYSTEM',`contracts @ ${shortAddr(aAddr)}`);
+  showToast('Contracts connected on Sepolia!', 'ok');
+  addTxItem('real','SYSTEM',`assignId @ ${shortAddr(ASSIGN_ID_ADDRESS)}`);
+  addTxItem('real','SYSTEM',`weatherData @ ${shortAddr(WEATHER_DATA_ADDRESS)}`);
 }
-window.setContractAddresses = setContractAddresses;
 
 function setStatus(which, state, text) {
   const el = document.getElementById(which==='assign'?'assignIdStatus':'weatherDataStatus');
   el.className = 'contract-status ' + state;
-  el.textContent = state === 'ok' ? '● DEPLOYED' : state === 'pending' ? '⏳ ' + text : '● ' + text;
-  if (state === 'ok') {
-    document.getElementById(which==='assign'?'assignIdAddr':'weatherDataAddr').textContent = text;
-  }
+  el.textContent = state==='ok' ? '● LIVE ON SEPOLIA' : state==='pending' ? '⏳ ' + text : '● ' + text;
 }
 
 function updateContractButtons() {
   const ok = !!assignIdContract && !!weatherDataContract;
   ['regBtn','recBtn','chkBtn'].forEach(id => document.getElementById(id).disabled = !ok);
 }
+
+// Expose for console use if needed
+window.initContracts = initContracts;
 
 // ===================== CONTRACT CALLS =====================
 async function registerSensor() {
@@ -557,7 +587,7 @@ function showRes(el, type, text) {
 
 // ===================== WEATHER API =====================
 async function fetchWeather(sensor) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&hourly=temperature_2m,relative_humidity_2m,rain,wind_speed_10m,surface_temperature&models=bom_access_global`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${sensor.lat}&longitude=${sensor.lon}&hourly=${API_VARS}&models=bom_access_global&timezone=auto&forecast_days=2`;
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
