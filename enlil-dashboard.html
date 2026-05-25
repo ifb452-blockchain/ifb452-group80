@@ -159,9 +159,9 @@
 <main>
 
   <!-- Contract status banner -->
-  <div class="contract-banner">
+  <div class="contract-banner" style="grid-template-columns:1fr 1fr 1fr auto">
     <div class="contract-info">
-      <div class="contract-label">assignId Contract</div>
+      <div class="contract-label">assignId Contract · Sepolia</div>
       <div class="contract-addr" id="assignIdAddr">0xd9145CCE52D386f254917e481eB44e9943F39138</div>
       <div class="contract-status none" id="assignIdStatus">● CONNECT WALLET TO ACTIVATE</div>
     </div>
@@ -170,7 +170,12 @@
       <div class="contract-addr" id="weatherDataAddr">0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8</div>
       <div class="contract-status none" id="weatherDataStatus">● CONNECT WALLET TO ACTIVATE</div>
     </div>
-    <button class="deploy-btn" id="deployBtn" disabled>SEPOLIA TESTNET</button>
+    <div class="contract-info">
+      <div class="contract-label">viewRecordData Contract · Sepolia</div>
+      <div class="contract-addr" id="viewRecordAddr">Deploy after connecting wallet</div>
+      <div class="contract-status none" id="viewRecordStatus">● NOT YET DEPLOYED</div>
+    </div>
+    <button class="deploy-btn" id="deployBtn" disabled onclick="deployViewContract()">DEPLOY QUERY CONTRACT</button>
   </div>
 
   <!-- Sensor selector -->
@@ -346,10 +351,59 @@
     </div>
   </div>
 
+  <!-- viewRecordData — Public Query Panel -->
+  <div class="panel" style="margin-top:1.5rem">
+    <div class="panel-header">
+      <span class="panel-title">PUBLIC DATA VERIFICATION — viewRecordData</span>
+      <span class="panel-meta" id="viewRecordPanelStatus">NO WALLET</span>
+    </div>
+    <div class="panel-body">
+      <div style="font-family:var(--mono);font-size:.62rem;color:var(--text3);margin-bottom:1rem;line-height:1.7;border-left:2px solid var(--accent);padding-left:.75rem">
+        Read-only public interface. Government agencies, insurers, or researchers can query sensor records by ID, date range, or verify a hash against stored on-chain data — no wallet or permissions required.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem">
+
+        <!-- Query by Sensor ID -->
+        <div class="cfs">
+          <div class="cfh"><span style="color:var(--accent)">●</span> viewRecordData · queryBySensorId()</div>
+          <div class="cfb">
+            <input class="cinput" id="qSensorId" type="number" placeholder="Sensor ID (e.g. 1)">
+            <button class="cbtn read" id="qSensorBtn" disabled onclick="queryBySensorId()">QUERY ALL RECORDS</button>
+            <div class="cresult" id="qSensorResult"></div>
+          </div>
+        </div>
+
+        <!-- Query by Date Range -->
+        <div class="cfs">
+          <div class="cfh"><span style="color:var(--green)">●</span> viewRecordData · queryByDateRange()</div>
+          <div class="cfb">
+            <input class="cinput" id="qRangeSensorId" type="number" placeholder="Sensor ID">
+            <input class="cinput" id="qRangeFrom" type="datetime-local">
+            <input class="cinput" id="qRangeTo" type="datetime-local">
+            <button class="cbtn read" id="qRangeBtn" disabled onclick="queryByDateRange()">QUERY DATE RANGE</button>
+            <div class="cresult" id="qRangeResult"></div>
+          </div>
+        </div>
+
+        <!-- Verify Hash -->
+        <div class="cfs">
+          <div class="cfh"><span style="color:var(--yellow)">●</span> viewRecordData · verifyHash()</div>
+          <div class="cfb">
+            <input class="cinput" id="qHashSensorId" type="number" placeholder="Sensor ID">
+            <input class="cinput" id="qHash" type="text" placeholder="0x weatherHash (bytes32)">
+            <button class="cbtn read" id="qHashBtn" disabled onclick="verifyHash()">VERIFY HASH</button>
+            <div class="cresult" id="qHashResult"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <footer>
-  <span>ENLIL v0.2 · IFB452 BLOCKCHAIN TECHNOLOGY · QUT</span>
+  <span>ENLIL v0.3 · IFB452 BLOCKCHAIN TECHNOLOGY · QUT</span>
   <span id="footerTime">—</span>
 </footer>
 
@@ -486,6 +540,9 @@ function initContracts() {
   showToast('Contracts connected on Sepolia!', 'ok');
   addTxItem('real','SYSTEM',`assignId @ ${shortAddr(ASSIGN_ID_ADDRESS)}`);
   addTxItem('real','SYSTEM',`weatherData @ ${shortAddr(WEATHER_DATA_ADDRESS)}`);
+
+  // Auto-init viewRecordData with the same signer
+  initViewContract(signer);
 }
 
 function setStatus(which, state, text) {
@@ -501,6 +558,127 @@ function updateContractButtons() {
 
 // Expose for console use if needed
 window.initContracts = initContracts;
+
+// ===================== viewRecordData CONTRACT =====================
+const VIEW_RECORD_ADDRESS = '0xf8e81D47203A594245E36C48e151709F0C19fBe8';
+
+let viewRecordContract = null;
+
+const VIEW_RECORD_ABI = [
+  {"inputs":[{"internalType":"address","name":"_assignId","type":"address"},{"internalType":"address","name":"_weatherData","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
+  {"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"assignId","type":"address"},{"indexed":false,"internalType":"address","name":"weatherData","type":"address"}],"name":"ContractsUpdated","type":"event"},
+  {"inputs":[],"name":"assignIdContract","outputs":[{"internalType":"contract IAssignId","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getRecordCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getSensorLocation","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"isSensorRegistered","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"uint256","name":"_from","type":"uint256"},{"internalType":"uint256","name":"_to","type":"uint256"}],"name":"queryByDateRange","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"queryBySensorId","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"queryLatest","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"bytes32","name":"_hash","type":"bytes32"}],"name":"verifyHash","outputs":[{"internalType":"bool","name":"found","type":"bool"},{"internalType":"uint256","name":"recordIndex","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"weatherDataContract","outputs":[{"internalType":"contract IWeatherData","name":"","type":"address"}],"stateMutability":"view","type":"function"}
+];
+
+function initViewContract(signerOrProvider) {
+  viewRecordContract = new ethers.Contract(VIEW_RECORD_ADDRESS, VIEW_RECORD_ABI, signerOrProvider);
+  document.getElementById('viewRecordAddr').textContent    = VIEW_RECORD_ADDRESS;
+  document.getElementById('viewRecordStatus').className    = 'contract-status ok';
+  document.getElementById('viewRecordStatus').textContent  = '● LIVE ON SEPOLIA';
+  document.getElementById('viewRecordPanelStatus').textContent = 'LIVE';
+  document.getElementById('viewRecordPanelStatus').style.color = 'var(--green)';
+  document.getElementById('deployBtn').textContent = 'ALL 3 LIVE ✓';
+  document.getElementById('deployBtn').disabled = true;
+  ['qSensorBtn','qRangeBtn','qHashBtn'].forEach(id => document.getElementById(id).disabled = false);
+  addTxItem('view','PUBLIC',`viewRecordData @ ${shortAddr(VIEW_RECORD_ADDRESS)}`);
+}
+
+
+
+// ── Helper: format a QueryResult tuple for display ──────────────
+function formatRecord(r, index) {
+  const ts = new Date(Number(r.timestamp) * 1000).toLocaleString();
+  return `[${index}] ${ts}
+  Location : ${r.location || '—'}
+  Temp     : ${(Number(r.temp)/10).toFixed(1)} °C
+  Humidity : ${Number(r.humidity)} %
+  Wind     : ${(Number(r.wind)/10).toFixed(1)} km/h
+  Rain     : ${(Number(r.rain)/10).toFixed(1)} mm
+  Hash     : ${r.weatherHash}
+  Verified : ${r.verified ? '✓' : '✗'}`;
+}
+
+// ── queryBySensorId ──────────────────────────────────────────────
+async function queryBySensorId() {
+  const id  = document.getElementById('qSensorId').value.trim();
+  const res = document.getElementById('qSensorResult');
+  if (!id) { showRes(res,'fail','⚠ Enter a sensor ID.'); return; }
+  if (!viewRecordContract) { showRes(res,'fail','⚠ Deploy viewRecordData first.'); return; }
+  try {
+    document.getElementById('qSensorBtn').disabled = true;
+    showRes(res,'info','⏳ Querying chain…');
+    addTxItem('view','PUBLIC',`queryBySensorId(${id})`);
+    const records = await viewRecordContract.queryBySensorId(BigInt(id));
+    if (records.length === 0) {
+      showRes(res,'info',`No records found for sensor ${id}.`);
+    } else {
+      const text = `✓ ${records.length} record(s) for sensor ${id}:\n\n` +
+        records.map((r,i) => formatRecord(r,i)).join('\n\n');
+      showRes(res,'ok', text);
+    }
+  } catch(e) {
+    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140));
+  } finally { document.getElementById('qSensorBtn').disabled = false; }
+}
+
+// ── queryByDateRange ─────────────────────────────────────────────
+async function queryByDateRange() {
+  const id   = document.getElementById('qRangeSensorId').value.trim();
+  const from = document.getElementById('qRangeFrom').value;
+  const to   = document.getElementById('qRangeTo').value;
+  const res  = document.getElementById('qRangeResult');
+  if (!id || !from || !to) { showRes(res,'fail','⚠ Fill in sensor ID, from and to.'); return; }
+  if (!viewRecordContract) { showRes(res,'fail','⚠ Deploy viewRecordData first.'); return; }
+  try {
+    document.getElementById('qRangeBtn').disabled = true;
+    showRes(res,'info','⏳ Querying chain…');
+    const fromTs = BigInt(Math.floor(new Date(from).getTime() / 1000));
+    const toTs   = BigInt(Math.floor(new Date(to).getTime()   / 1000));
+    addTxItem('view','PUBLIC',`queryByDateRange(${id})`);
+    const records = await viewRecordContract.queryByDateRange(BigInt(id), fromTs, toTs);
+    if (records.length === 0) {
+      showRes(res,'info','No records in that date range.');
+    } else {
+      const text = `✓ ${records.length} record(s) found:\n\n` +
+        records.map((r,i) => formatRecord(r,i)).join('\n\n');
+      showRes(res,'ok', text);
+    }
+  } catch(e) {
+    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140));
+  } finally { document.getElementById('qRangeBtn').disabled = false; }
+}
+
+// ── verifyHash ───────────────────────────────────────────────────
+async function verifyHash() {
+  const id   = document.getElementById('qHashSensorId').value.trim();
+  const hash = document.getElementById('qHash').value.trim();
+  const res  = document.getElementById('qHashResult');
+  if (!id || !hash) { showRes(res,'fail','⚠ Enter sensor ID and hash.'); return; }
+  if (!viewRecordContract) { showRes(res,'fail','⚠ Deploy viewRecordData first.'); return; }
+  try {
+    document.getElementById('qHashBtn').disabled = true;
+    showRes(res,'info','⏳ Verifying on chain…');
+    addTxItem('view','PUBLIC',`verifyHash(${id})`);
+    const [found, recordIndex, timestamp] = await viewRecordContract.verifyHash(BigInt(id), hash);
+    if (found) {
+      const ts = new Date(Number(timestamp) * 1000).toLocaleString();
+      showRes(res,'ok',
+        `✓ HASH VERIFIED\nFound at record index: ${recordIndex}\nTimestamp: ${ts}\nHash: ${hash}`);
+    } else {
+      showRes(res,'fail',`✗ Hash not found for sensor ${id}.\nNo matching on-chain record.`);
+    }
+  } catch(e) {
+    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140));
+  } finally { document.getElementById('qHashBtn').disabled = false; }
+}
 
 // ===================== CONTRACT CALLS =====================
 async function registerSensor() {
