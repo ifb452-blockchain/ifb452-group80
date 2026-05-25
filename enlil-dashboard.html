@@ -5,670 +5,121 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ENLIL — Weather Observation Network</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
 <style>
   :root {
-    --bg: #0a0c10;
-    --surface: #111318;
-    --surface2: #181b22;
-    --border: #1e2330;
-    --border2: #252c3a;
-    --accent: #00d4ff;
-    --accent2: #0099cc;
-    --green: #00e5a0;
-    --yellow: #f5c542;
-    --red: #ff4d6a;
-    --text: #e8eaf0;
-    --text2: #8892a4;
-    --text3: #4d5566;
-    --mono: 'Space Mono', monospace;
-    --sans: 'DM Sans', sans-serif;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* === BACKGROUND GRID === */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(var(--border) 1px, transparent 1px),
-      linear-gradient(90deg, var(--border) 1px, transparent 1px);
-    background-size: 40px 40px;
-    opacity: 0.4;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* === HEADER === */
-  header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: rgba(10,12,16,0.92);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border2);
-    padding: 0 2rem;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .logo-icon {
-    width: 32px;
-    height: 32px;
-    border: 2px solid var(--accent);
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .logo-icon::after {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 2px;
-    background: var(--accent);
-    animation: scan 2s linear infinite;
-  }
-
-  @keyframes scan {
-    0% { top: -2px; }
-    100% { top: 100%; }
-  }
-
-  .logo-text {
-    font-family: var(--mono);
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    color: var(--accent);
-  }
-
-  .logo-sub {
-    font-size: 0.65rem;
-    color: var(--text3);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-  }
-
-  .status-pill {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(0,229,160,0.08);
-    border: 1px solid rgba(0,229,160,0.2);
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    color: var(--green);
-  }
-
-  .status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--green);
-    animation: pulse 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.8); }
-  }
-
-  .chain-id {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    color: var(--text3);
-  }
-
-  /* === LAYOUT === */
-  main {
-    position: relative;
-    z-index: 1;
-    padding: 1.5rem 2rem 3rem;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  /* === SENSOR SELECTOR === */
-  .sensor-bar {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-  }
-
-  .sensor-bar label {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    color: var(--text3);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    white-space: nowrap;
-  }
-
-  .sensor-tabs {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .sensor-tab {
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    color: var(--text2);
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    padding: 6px 14px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.15s;
-    letter-spacing: 0.05em;
-  }
-
-  .sensor-tab:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .sensor-tab.active {
-    background: rgba(0,212,255,0.1);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .sensor-tab .sensor-indicator {
-    display: inline-block;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--green);
-    margin-right: 6px;
-    vertical-align: middle;
-  }
-
-  /* === STAT CARDS ROW === */
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    margin-bottom: 1.5rem;
-  }
-
-  .stat-card {
-    background: var(--surface);
-    padding: 1.2rem 1.2rem 1rem;
-    position: relative;
-    transition: background 0.15s;
-  }
-
-  .stat-card:hover { background: var(--surface2); }
-
-  .stat-label {
-    font-family: var(--mono);
-    font-size: 0.62rem;
-    color: var(--text3);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .stat-label svg { opacity: 0.5; }
-
-  .stat-value {
-    font-family: var(--mono);
-    font-size: 1.6rem;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--text);
-    transition: color 0.3s;
-  }
-
-  .stat-unit {
-    font-size: 0.75rem;
-    color: var(--text3);
-    font-weight: 400;
-    margin-left: 3px;
-  }
-
-  .stat-change {
-    margin-top: 0.4rem;
-    font-size: 0.68rem;
-    font-family: var(--mono);
-    color: var(--text3);
-  }
-
-  .stat-card .accent-bar {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    height: 2px;
-    background: var(--accent);
-    width: 0%;
-    transition: width 1s ease;
-  }
-
-  /* === MAIN GRID === */
-  .grid-main {
-    display: grid;
-    grid-template-columns: 1fr 340px;
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
-  }
-
-  /* === CHART PANEL === */
-  .panel {
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  .panel-header {
-    padding: 1rem 1.2rem;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .panel-title {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--text2);
-  }
-
-  .panel-meta {
-    font-family: var(--mono);
-    font-size: 0.62rem;
-    color: var(--text3);
-  }
-
-  .panel-body {
-    padding: 1.2rem;
-  }
-
-  /* === CHART === */
-  .chart-controls {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .chart-btn {
-    background: none;
-    border: 1px solid var(--border2);
-    color: var(--text3);
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    padding: 4px 10px;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 0.15s;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .chart-btn:hover, .chart-btn.active {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(0,212,255,0.05);
-  }
-
-  .chart-wrap {
-    position: relative;
-    height: 220px;
-    width: 100%;
-  }
-
-  canvas { display: block; }
-
-  /* === BLOCKCHAIN FEED === */
-  .tx-feed {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .tx-item {
-    padding: 0.75rem 1.2rem;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    transition: background 0.15s;
-    cursor: pointer;
-    animation: slideIn 0.3s ease;
-  }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .tx-item:hover { background: var(--surface2); }
-  .tx-item:last-child { border-bottom: none; }
-
-  .tx-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .tx-hash {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    color: var(--accent);
-    letter-spacing: 0.03em;
-  }
-
-  .tx-time {
-    font-family: var(--mono);
-    font-size: 0.58rem;
-    color: var(--text3);
-  }
-
-  .tx-data {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    color: var(--text3);
-    letter-spacing: 0.02em;
-  }
-
-  .tx-sensor {
-    font-size: 0.62rem;
-    color: var(--text2);
-  }
-
-  .tx-type {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: 2px;
-    font-family: var(--mono);
-    font-size: 0.55rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .tx-type.record { background: rgba(0,212,255,0.1); color: var(--accent); }
-  .tx-type.assign { background: rgba(0,229,160,0.1); color: var(--green); }
-  .tx-type.view { background: rgba(245,197,66,0.1); color: var(--yellow); }
-
-  /* === BOTTOM GRID === */
-  .grid-bottom {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
-  }
-
-  /* === SENSOR MAP PLACEHOLDER === */
-  .map-area {
-    position: relative;
-    height: 180px;
-    background: var(--surface2);
-    border-radius: 4px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-  }
-
-  .map-grid {
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
-    background-size: 20px 20px;
-  }
-
-  .map-dot {
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent);
-    transform: translate(-50%, -50%);
-    cursor: pointer;
-  }
-
-  .map-dot::before {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    border: 1px solid var(--accent);
-    opacity: 0.4;
-    animation: ripple 2s ease-out infinite;
-  }
-
-  .map-dot.inactive { background: var(--text3); }
-  .map-dot.inactive::before { border-color: var(--text3); }
-
-  @keyframes ripple {
-    0% { transform: scale(1); opacity: 0.4; }
-    100% { transform: scale(2.5); opacity: 0; }
-  }
-
-  .map-dot-label {
-    position: absolute;
-    top: -18px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-family: var(--mono);
-    font-size: 0.5rem;
-    color: var(--accent);
-    white-space: nowrap;
-    letter-spacing: 0.05em;
-  }
-
-  /* === GAUGE BARS === */
-  .gauge-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-  }
-
-  .gauge-item label {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.68rem;
-    color: var(--text2);
-    margin-bottom: 4px;
-  }
-
-  .gauge-item label span {
-    font-family: var(--mono);
-    color: var(--text);
-  }
-
-  .gauge-track {
-    height: 4px;
-    background: var(--border2);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .gauge-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 1s ease;
-  }
-
-  /* === HASH VERIFY === */
-  .verify-form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .verify-input {
-    background: var(--bg);
-    border: 1px solid var(--border2);
-    border-radius: 4px;
-    padding: 0.6rem 0.8rem;
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    color: var(--text);
-    width: 100%;
-    outline: none;
-    transition: border-color 0.15s;
-    letter-spacing: 0.03em;
-  }
-
-  .verify-input:focus { border-color: var(--accent); }
-  .verify-input::placeholder { color: var(--text3); }
-
-  .verify-btn {
-    background: rgba(0,212,255,0.1);
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    padding: 0.6rem;
-    border-radius: 4px;
-    cursor: pointer;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    transition: all 0.15s;
-    width: 100%;
-  }
-
-  .verify-btn:hover {
-    background: rgba(0,212,255,0.2);
-  }
-
-  .verify-result {
-    font-family: var(--mono);
-    font-size: 0.62rem;
-    padding: 0.6rem 0.8rem;
-    border-radius: 4px;
-    display: none;
-    line-height: 1.6;
-    word-break: break-all;
-  }
-
-  .verify-result.ok {
-    background: rgba(0,229,160,0.08);
-    border: 1px solid rgba(0,229,160,0.2);
-    color: var(--green);
-    display: block;
-  }
-
-  .verify-result.fail {
-    background: rgba(255,77,106,0.08);
-    border: 1px solid rgba(255,77,106,0.2);
-    color: var(--red);
-    display: block;
-  }
-
-  /* === LOADING === */
-  .loading-overlay {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 220px;
-    gap: 1rem;
-  }
-
-  .spinner {
-    width: 28px;
-    height: 28px;
-    border: 2px solid var(--border2);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .loading-text {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    color: var(--text3);
-    letter-spacing: 0.1em;
-  }
-
-  /* === ERROR === */
-  .error-msg {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    color: var(--red);
-    text-align: center;
-    padding: 2rem;
-  }
-
-  /* === FOOTER === */
-  footer {
-    position: relative;
-    z-index: 1;
-    border-top: 1px solid var(--border);
-    padding: 1rem 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  footer span {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    color: var(--text3);
-    letter-spacing: 0.08em;
-  }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-
-  @media (max-width: 1100px) {
-    .stats-row { grid-template-columns: repeat(3, 1fr); }
-    .grid-main { grid-template-columns: 1fr; }
-    .grid-bottom { grid-template-columns: 1fr 1fr; }
-  }
-  @media (max-width: 700px) {
-    .stats-row { grid-template-columns: repeat(2, 1fr); }
-    .grid-bottom { grid-template-columns: 1fr; }
-    main { padding: 1rem; }
-  }
+    --bg:#0a0c10;--surface:#111318;--surface2:#181b22;--border:#1e2330;
+    --border2:#252c3a;--accent:#00d4ff;--accent2:#0099cc;--green:#00e5a0;
+    --yellow:#f5c542;--red:#ff4d6a;--text:#e8eaf0;--text2:#8892a4;
+    --text3:#4d5566;--mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:40px 40px;opacity:.4;pointer-events:none;z-index:0}
+  header{position:sticky;top:0;z-index:100;background:rgba(10,12,16,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border2);padding:0 2rem;height:60px;display:flex;align-items:center;justify-content:space-between}
+  .logo{display:flex;align-items:center;gap:12px}
+  .logo-icon{width:32px;height:32px;border:2px solid var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .logo-icon::after{content:'';position:absolute;width:100%;height:2px;background:var(--accent);animation:scan 2s linear infinite}
+  @keyframes scan{0%{top:-2px}100%{top:100%}}
+  .logo-text{font-family:var(--mono);font-size:1.1rem;font-weight:700;letter-spacing:.15em;color:var(--accent)}
+  .logo-sub{font-size:.65rem;color:var(--text3);letter-spacing:.1em;text-transform:uppercase}
+  .header-right{display:flex;align-items:center;gap:1rem}
+  .status-pill{display:flex;align-items:center;gap:6px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.2);border-radius:20px;padding:4px 12px;font-family:var(--mono);font-size:.7rem;color:var(--green)}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+  .chain-id{font-family:var(--mono);font-size:.65rem;color:var(--text3)}
+  .mm-btn{display:flex;align-items:center;gap:8px;background:rgba(255,153,0,.08);border:1px solid rgba(255,153,0,.3);color:#ff9900;font-family:var(--mono);font-size:.68rem;padding:6px 14px;border-radius:4px;cursor:pointer;transition:all .15s;letter-spacing:.05em;white-space:nowrap}
+  .mm-btn:hover{background:rgba(255,153,0,.15);border-color:#ff9900}
+  .mm-btn.connected{background:rgba(0,229,160,.08);border-color:rgba(0,229,160,.3);color:var(--green)}
+  main{position:relative;z-index:1;padding:1.5rem 2rem 3rem;max-width:1400px;margin:0 auto}
+  .contract-banner{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:1rem 1.2rem;margin-bottom:1.5rem;display:grid;grid-template-columns:1fr 1fr auto;gap:1rem;align-items:center}
+  .contract-info{display:flex;flex-direction:column;gap:4px}
+  .contract-label{font-family:var(--mono);font-size:.6rem;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
+  .contract-addr{font-family:var(--mono);font-size:.65rem;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .contract-status{font-family:var(--mono);font-size:.62rem}
+  .contract-status.ok{color:var(--green)}.contract-status.pending{color:var(--yellow)}.contract-status.none{color:var(--text3)}
+  .deploy-btn{background:rgba(0,212,255,.1);border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:.65rem;padding:8px 16px;border-radius:4px;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;transition:all .15s;white-space:nowrap}
+  .deploy-btn:hover{background:rgba(0,212,255,.2)}.deploy-btn:disabled{opacity:.4;cursor:not-allowed}
+  .sensor-bar{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
+  .sensor-bar label{font-family:var(--mono);font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
+  .sensor-tabs{display:flex;gap:.5rem;flex-wrap:wrap}
+  .sensor-tab{background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-family:var(--mono);font-size:.7rem;padding:6px 14px;border-radius:4px;cursor:pointer;transition:all .15s;letter-spacing:.05em}
+  .sensor-tab:hover{border-color:var(--accent);color:var(--accent)}
+  .sensor-tab.active{background:rgba(0,212,255,.1);border-color:var(--accent);color:var(--accent)}
+  .sensor-tab .si{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:6px;vertical-align:middle}
+  .stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:1.5rem}
+  .stat-card{background:var(--surface);padding:1.2rem 1.2rem 1rem;position:relative;transition:background .15s}
+  .stat-card:hover{background:var(--surface2)}
+  .stat-label{font-family:var(--mono);font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem;display:flex;align-items:center;gap:6px}
+  .stat-value{font-family:var(--mono);font-size:1.6rem;font-weight:700;line-height:1;color:var(--text)}
+  .stat-unit{font-size:.75rem;color:var(--text3);font-weight:400;margin-left:3px}
+  .stat-change{margin-top:.4rem;font-size:.68rem;font-family:var(--mono);color:var(--text3)}
+  .stat-card .accent-bar{position:absolute;bottom:0;left:0;height:2px;background:var(--accent);width:0%;transition:width 1s ease}
+  .grid-main{display:grid;grid-template-columns:1fr 340px;gap:1.5rem;margin-bottom:1.5rem}
+  .panel{background:var(--surface);border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+  .panel-header{padding:1rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+  .panel-title{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--text2)}
+  .panel-meta{font-family:var(--mono);font-size:.62rem;color:var(--text3)}
+  .panel-body{padding:1.2rem}
+  .chart-controls{display:flex;gap:.5rem;margin-bottom:1rem}
+  .chart-btn{background:none;border:1px solid var(--border2);color:var(--text3);font-family:var(--mono);font-size:.65rem;padding:4px 10px;border-radius:3px;cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:.05em}
+  .chart-btn:hover,.chart-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.05)}
+  .chart-wrap{position:relative;height:220px;width:100%}
+  canvas{display:block}
+  .tx-feed{display:flex;flex-direction:column}
+  .tx-item{padding:.75rem 1.2rem;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:3px;cursor:pointer;animation:slideIn .3s ease}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+  .tx-item:hover{background:var(--surface2)}.tx-item:last-child{border-bottom:none}
+  .tx-top{display:flex;justify-content:space-between;align-items:center}
+  .tx-hash{font-family:var(--mono);font-size:.65rem;color:var(--accent)}
+  .tx-time{font-family:var(--mono);font-size:.58rem;color:var(--text3)}
+  .tx-data{font-family:var(--mono);font-size:.6rem;color:var(--text3)}
+  .tx-sensor{font-size:.62rem;color:var(--text2)}
+  .tx-type{display:inline-block;padding:1px 6px;border-radius:2px;font-family:var(--mono);font-size:.55rem;text-transform:uppercase;letter-spacing:.05em}
+  .tx-type.record{background:rgba(0,212,255,.1);color:var(--accent)}
+  .tx-type.assign{background:rgba(0,229,160,.1);color:var(--green)}
+  .tx-type.view{background:rgba(245,197,66,.1);color:var(--yellow)}
+  .tx-type.real{background:rgba(255,153,0,.1);color:#ff9900}
+  .grid-bottom{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem}
+  .map-area{position:relative;height:180px;background:var(--surface2);border-radius:4px;overflow:hidden;border:1px solid var(--border)}
+  .map-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(0,212,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.04) 1px,transparent 1px);background-size:20px 20px}
+  .map-dot{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--accent);transform:translate(-50%,-50%);cursor:pointer}
+  .map-dot::before{content:'';position:absolute;inset:-4px;border-radius:50%;border:1px solid var(--accent);opacity:.4;animation:ripple 2s ease-out infinite}
+  @keyframes ripple{0%{transform:scale(1);opacity:.4}100%{transform:scale(2.5);opacity:0}}
+  .map-dot-label{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:.5rem;color:var(--accent);white-space:nowrap}
+  .gauge-list{display:flex;flex-direction:column;gap:.85rem}
+  .gauge-item label{display:flex;justify-content:space-between;font-size:.68rem;color:var(--text2);margin-bottom:4px}
+  .gauge-item label span{font-family:var(--mono);color:var(--text)}
+  .gauge-track{height:4px;background:var(--border2);border-radius:2px;overflow:hidden}
+  .gauge-fill{height:100%;border-radius:2px;transition:width 1s ease}
+  .contract-panel{display:flex;flex-direction:column;gap:.75rem}
+  .cfs{border:1px solid var(--border2);border-radius:4px;overflow:hidden}
+  .cfh{background:var(--surface2);padding:.5rem .8rem;font-family:var(--mono);font-size:.62rem;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:6px}
+  .cfb{padding:.75rem;display:flex;flex-direction:column;gap:.5rem}
+  .cinput{background:var(--bg);border:1px solid var(--border2);border-radius:4px;padding:.5rem .8rem;font-family:var(--mono);font-size:.65rem;color:var(--text);width:100%;outline:none;transition:border-color .15s}
+  .cinput:focus{border-color:var(--accent)}.cinput::placeholder{color:var(--text3)}
+  .cbtn{border:1px solid;font-family:var(--mono);font-size:.65rem;padding:.5rem 1rem;border-radius:4px;cursor:pointer;text-transform:uppercase;letter-spacing:.08em;transition:all .15s;width:100%}
+  .cbtn.write{background:rgba(0,212,255,.08);border-color:var(--accent);color:var(--accent)}
+  .cbtn.write:hover{background:rgba(0,212,255,.18)}
+  .cbtn.read{background:rgba(0,229,160,.08);border-color:var(--green);color:var(--green)}
+  .cbtn.read:hover{background:rgba(0,229,160,.18)}
+  .cbtn:disabled{opacity:.35;cursor:not-allowed}
+  .cresult{font-family:var(--mono);font-size:.6rem;line-height:1.6;padding:.5rem .8rem;border-radius:4px;word-break:break-all;display:none;white-space:pre-line}
+  .cresult.ok{background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.2);color:var(--green);display:block}
+  .cresult.fail{background:rgba(255,77,106,.08);border:1px solid rgba(255,77,106,.2);color:var(--red);display:block}
+  .cresult.info{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);color:var(--accent);display:block}
+  .loading-overlay{display:flex;flex-direction:column;align-items:center;justify-content:center;height:220px;gap:1rem}
+  .spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-text{font-family:var(--mono);font-size:.65rem;color:var(--text3);letter-spacing:.1em}
+  .toast{position:fixed;bottom:2rem;right:2rem;z-index:999;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.75rem 1.2rem;font-family:var(--mono);font-size:.7rem;animation:toastIn .3s ease;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+  .toast.ok{border-color:rgba(0,229,160,.3);color:var(--green)}.toast.fail{border-color:rgba(255,77,106,.3);color:var(--red)}.toast.info{border-color:rgba(0,212,255,.3);color:var(--accent)}
+  @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center;max-width:1400px;margin:0 auto}
+  footer span{font-family:var(--mono);font-size:.6rem;color:var(--text3);letter-spacing:.08em}
+  ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+  @media(max-width:1100px){.stats-row{grid-template-columns:repeat(3,1fr)}.grid-main{grid-template-columns:1fr}.grid-bottom{grid-template-columns:1fr 1fr}.contract-banner{grid-template-columns:1fr}}
+  @media(max-width:700px){.stats-row{grid-template-columns:repeat(2,1fr)}.grid-bottom{grid-template-columns:1fr}main{padding:1rem}}
 </style>
 </head>
 <body>
@@ -687,31 +138,61 @@
     </div>
   </div>
   <div class="header-right">
-    <div class="status-pill">
-      <div class="status-dot"></div>
-      NETWORK ACTIVE
-    </div>
+    <div class="status-pill"><div class="status-dot"></div>NETWORK ACTIVE</div>
     <div class="chain-id" id="blockNum">BLOCK #—</div>
+    <button class="mm-btn" id="mmBtn" onclick="connectMetaMask()">
+      <svg width="14" height="14" viewBox="0 0 212 189" fill="none">
+        <polygon points="199,0 124,56 138,24" fill="#e2761b"/>
+        <polygon points="13,0 87,56 74,24" fill="#e4761b"/>
+        <polygon points="170,135 148,169 194,181 206,136" fill="#e4761b"/>
+        <polygon points="6,136 18,181 64,169 42,135" fill="#e4761b"/>
+        <polygon points="61,82 48,102 94,104 92,55" fill="#e4761b"/>
+        <polygon points="151,82 119,55 118,104 164,102" fill="#e4761b"/>
+        <polygon points="64,169 91,145 68,137" fill="#d7c1b3"/>
+        <polygon points="121,145 148,169 144,137" fill="#d7c1b3"/>
+      </svg>
+      CONNECT WALLET
+    </button>
   </div>
 </header>
 
 <main>
 
+  <!-- Contract status banner -->
+  <div class="contract-banner" style="grid-template-columns:1fr 1fr 1fr auto">
+    <div class="contract-info">
+      <div class="contract-label">assignId Contract · Sepolia</div>
+      <div class="contract-addr" id="assignIdAddr">0xd9145CCE52D386f254917e481eB44e9943F39138</div>
+      <div class="contract-status none" id="assignIdStatus">● CONNECT WALLET TO ACTIVATE</div>
+    </div>
+    <div class="contract-info">
+      <div class="contract-label">WeatherData Contract · Sepolia</div>
+      <div class="contract-addr" id="weatherDataAddr">0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8</div>
+      <div class="contract-status none" id="weatherDataStatus">● CONNECT WALLET TO ACTIVATE</div>
+    </div>
+    <div class="contract-info">
+      <div class="contract-label">viewRecordData Contract · Sepolia</div>
+      <div class="contract-addr" id="viewRecordAddr">Deploy after connecting wallet</div>
+      <div class="contract-status none" id="viewRecordStatus">● NOT YET DEPLOYED</div>
+    </div>
+    <button class="deploy-btn" id="deployBtn" disabled onclick="deployViewContract()">DEPLOY QUERY CONTRACT</button>
+  </div>
+
   <!-- Sensor selector -->
   <div class="sensor-bar">
     <label>ACTIVE SENSOR ▸</label>
     <div class="sensor-tabs" id="sensorTabs">
-      <button class="sensor-tab active" data-lat="-27.4698" data-lon="153.0251" data-id="SNS-BNE-001">
-        <span class="sensor-indicator"></span>SNS-BNE-001
+      <button class="sensor-tab active" data-lat="-27.4698" data-lon="153.0251" data-id="SNS-BNE-001" data-num="1">
+        <span class="si"></span>SNS-BNE-001
       </button>
-      <button class="sensor-tab" data-lat="-33.8688" data-lon="151.2093" data-id="SNS-SYD-002">
-        <span class="sensor-indicator"></span>SNS-SYD-002
+      <button class="sensor-tab" data-lat="-33.8688" data-lon="151.2093" data-id="SNS-SYD-002" data-num="2">
+        <span class="si"></span>SNS-SYD-002
       </button>
-      <button class="sensor-tab" data-lat="-37.8136" data-lon="144.9631" data-id="SNS-MEL-003">
-        <span class="sensor-indicator"></span>SNS-MEL-003
+      <button class="sensor-tab" data-lat="-37.8136" data-lon="144.9631" data-id="SNS-MEL-003" data-num="3">
+        <span class="si"></span>SNS-MEL-003
       </button>
-      <button class="sensor-tab" data-lat="-31.9505" data-lon="115.8605" data-id="SNS-PER-004">
-        <span class="sensor-indicator"></span>SNS-PER-004
+      <button class="sensor-tab" data-lat="-31.9505" data-lon="115.8605" data-id="SNS-PER-004" data-num="4">
+        <span class="si"></span>SNS-PER-004
       </button>
     </div>
   </div>
@@ -719,78 +200,45 @@
   <!-- Stats row -->
   <div class="stats-row">
     <div class="stat-card">
-      <div class="stat-label">
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-          <circle cx="5" cy="5" r="4" stroke="#8892a4" stroke-width="1"/>
-          <line x1="5" y1="2" x2="5" y2="5" stroke="#8892a4" stroke-width="1"/>
-        </svg>
-        Temperature
-      </div>
+      <div class="stat-label"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="#8892a4" stroke-width="1"/><line x1="5" y1="2" x2="5" y2="5" stroke="#8892a4" stroke-width="1"/></svg>Temperature</div>
       <div class="stat-value" id="statTemp">—<span class="stat-unit">°C</span></div>
       <div class="stat-change" id="statTempSub">loading…</div>
       <div class="accent-bar" id="barTemp"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-          <path d="M5 1 C5 1 2 5 2 6.5 A3 3 0 0 0 8 6.5 C8 5 5 1 5 1Z" stroke="#8892a4" stroke-width="1" fill="none"/>
-        </svg>
-        Humidity
-      </div>
+      <div class="stat-label"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1C5 1 2 5 2 6.5A3 3 0 008 6.5C8 5 5 1 5 1Z" stroke="#8892a4" stroke-width="1" fill="none"/></svg>Humidity</div>
       <div class="stat-value" id="statHum">—<span class="stat-unit">%</span></div>
       <div class="stat-change" id="statHumSub">loading…</div>
-      <div class="accent-bar" style="background: var(--accent2);" id="barHum"></div>
+      <div class="accent-bar" style="background:var(--accent2)" id="barHum"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-          <path d="M2 7 Q5 2 8 7" stroke="#8892a4" stroke-width="1" fill="none"/>
-        </svg>
-        Dew Point
-      </div>
+      <div class="stat-label"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 7Q5 2 8 7" stroke="#8892a4" stroke-width="1" fill="none"/></svg>Dew Point</div>
       <div class="stat-value" id="statDew">—<span class="stat-unit">°C</span></div>
       <div class="stat-change" id="statDewSub">loading…</div>
-      <div class="accent-bar" style="background: var(--green);" id="barDew"></div>
+      <div class="accent-bar" style="background:var(--green)" id="barDew"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-          <path d="M1 5 L9 5 M7 3 L9 5 L7 7" stroke="#8892a4" stroke-width="1" stroke-linecap="round"/>
-        </svg>
-        Wind Speed
-      </div>
+      <div class="stat-label"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 5L9 5M7 3L9 5L7 7" stroke="#8892a4" stroke-width="1" stroke-linecap="round"/></svg>Wind Speed</div>
       <div class="stat-value" id="statWind">—<span class="stat-unit">km/h</span></div>
       <div class="stat-change" id="statWindSub">loading…</div>
-      <div class="accent-bar" style="background: var(--yellow);" id="barWind"></div>
+      <div class="accent-bar" style="background:var(--yellow)" id="barWind"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-          <path d="M5 1 v3 M3 5 h4 M4 7 h2" stroke="#8892a4" stroke-width="1" stroke-linecap="round"/>
-        </svg>
-        Rainfall
-      </div>
+      <div class="stat-label"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1v3M3 5h4M4 7h2" stroke="#8892a4" stroke-width="1" stroke-linecap="round"/></svg>Rainfall</div>
       <div class="stat-value" id="statRain">—<span class="stat-unit">mm</span></div>
       <div class="stat-change" id="statRainSub">loading…</div>
-      <div class="accent-bar" style="background: #4d9fff;" id="barRain"></div>
+      <div class="accent-bar" style="background:#4d9fff" id="barRain"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-          <rect x="1" y="4" width="8" height="2" stroke="#8892a4" stroke-width="1"/>
-        </svg>
-        Surface Temp
-      </div>
+      <div class="stat-label"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="4" width="8" height="2" stroke="#8892a4" stroke-width="1"/></svg>Surface Temp</div>
       <div class="stat-value" id="statSurf">—<span class="stat-unit">°C</span></div>
       <div class="stat-change" id="statSurfSub">loading…</div>
-      <div class="accent-bar" style="background: var(--red);" id="barSurf"></div>
+      <div class="accent-bar" style="background:var(--red)" id="barSurf"></div>
     </div>
   </div>
 
   <!-- Main grid -->
   <div class="grid-main">
-
-    <!-- Chart panel -->
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title">HOURLY READINGS — 24H</span>
@@ -809,28 +257,22 @@
             <div class="spinner"></div>
             <div class="loading-text">FETCHING FROM BOM API…</div>
           </div>
-          <canvas id="mainChart" style="display:none;"></canvas>
+          <canvas id="mainChart" style="display:none"></canvas>
         </div>
       </div>
     </div>
-
-    <!-- Blockchain tx feed -->
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title">BLOCKCHAIN LEDGER</span>
         <span class="panel-meta">LIVE</span>
       </div>
-      <div class="tx-feed" id="txFeed">
-        <!-- populated by JS -->
-      </div>
+      <div class="tx-feed" id="txFeed"></div>
     </div>
-
   </div>
 
   <!-- Bottom grid -->
   <div class="grid-bottom">
-
-    <!-- Sensor map -->
+    <!-- Map -->
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title">SENSOR NETWORK</span>
@@ -839,41 +281,26 @@
       <div class="panel-body">
         <div class="map-area">
           <div class="map-grid"></div>
-          <!-- Simple schematic sensor dots -->
-          <div class="map-dot" style="left:55%;top:30%;" data-id="SNS-BNE-001">
-            <div class="map-dot-label">BNE-001</div>
-          </div>
-          <div class="map-dot" style="left:72%;top:42%;" data-id="SNS-SYD-002">
-            <div class="map-dot-label">SYD-002</div>
-          </div>
-          <div class="map-dot" style="left:65%;top:58%;" data-id="SNS-MEL-003">
-            <div class="map-dot-label">MEL-003</div>
-          </div>
-          <div class="map-dot" style="left:18%;top:48%;" data-id="SNS-PER-004">
-            <div class="map-dot-label">PER-004</div>
-          </div>
-          <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:0.15;" viewBox="0 0 340 180">
-            <line x1="187" y1="54" x2="245" y2="76" stroke="#00d4ff" stroke-width="0.5" stroke-dasharray="3,3"/>
-            <line x1="221" y1="104" x2="245" y2="76" stroke="#00d4ff" stroke-width="0.5" stroke-dasharray="3,3"/>
-            <line x1="61" y1="86" x2="187" y2="54" stroke="#00d4ff" stroke-width="0.5" stroke-dasharray="3,3"/>
+          <div class="map-dot" style="left:55%;top:30%"><div class="map-dot-label">BNE-001</div></div>
+          <div class="map-dot" style="left:72%;top:42%"><div class="map-dot-label">SYD-002</div></div>
+          <div class="map-dot" style="left:65%;top:58%"><div class="map-dot-label">MEL-003</div></div>
+          <div class="map-dot" style="left:18%;top:48%"><div class="map-dot-label">PER-004</div></div>
+          <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.15" viewBox="0 0 340 180">
+            <line x1="187" y1="54" x2="245" y2="76" stroke="#00d4ff" stroke-width=".5" stroke-dasharray="3,3"/>
+            <line x1="221" y1="104" x2="245" y2="76" stroke="#00d4ff" stroke-width=".5" stroke-dasharray="3,3"/>
+            <line x1="61" y1="86" x2="187" y2="54" stroke="#00d4ff" stroke-width=".5" stroke-dasharray="3,3"/>
           </svg>
-          <div style="position:absolute;bottom:8px;right:10px;font-family:var(--mono);font-size:0.5rem;color:var(--text3);">AUS SCHEMATIC</div>
+          <div style="position:absolute;bottom:8px;right:10px;font-family:var(--mono);font-size:.5rem;color:var(--text3)">AUS SCHEMATIC</div>
         </div>
-        <div style="margin-top:0.75rem;display:flex;gap:1rem;flex-wrap:wrap;">
-          <div style="font-family:var(--mono);font-size:0.6rem;color:var(--text3);">
-            <span style="color:var(--green);">●</span> ONLINE: 4
-          </div>
-          <div style="font-family:var(--mono);font-size:0.6rem;color:var(--text3);">
-            <span style="color:var(--red);">●</span> OFFLINE: 0
-          </div>
-          <div style="font-family:var(--mono);font-size:0.6rem;color:var(--text3);">
-            PROTOCOL: LoRaWAN
-          </div>
+        <div style="margin-top:.75rem;display:flex;gap:1rem;flex-wrap:wrap">
+          <div style="font-family:var(--mono);font-size:.6rem;color:var(--text3)"><span style="color:var(--green)">●</span> ONLINE: 4</div>
+          <div style="font-family:var(--mono);font-size:.6rem;color:var(--text3)"><span style="color:var(--red)">●</span> OFFLINE: 0</div>
+          <div style="font-family:var(--mono);font-size:.6rem;color:var(--text3)">PROTOCOL: LoRaWAN</div>
         </div>
       </div>
     </div>
 
-    <!-- Variable gauges -->
+    <!-- Gauges -->
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title">CURRENT CONDITIONS</span>
@@ -881,409 +308,695 @@
       </div>
       <div class="panel-body">
         <div class="gauge-list" id="gaugeList">
-          <div class="loading-text" style="text-align:center;padding:2rem 0;">Loading…</div>
+          <div class="loading-text" style="text-align:center;padding:2rem 0">Loading…</div>
         </div>
       </div>
     </div>
 
-    <!-- Hash verifier -->
+    <!-- Contract interaction -->
     <div class="panel">
       <div class="panel-header">
-        <span class="panel-title">VERIFY TRANSACTION</span>
-        <span class="panel-meta">viewRecordData()</span>
+        <span class="panel-title">CONTRACT INTERACTION</span>
+        <span class="panel-meta" id="contractPanelStatus">NO WALLET</span>
       </div>
       <div class="panel-body">
-        <div class="verify-form">
-          <input class="verify-input" id="verifyInput" placeholder="Enter TX hash or transaction ID…">
-          <select class="verify-input" id="verifySensor">
-            <option value="">— Select sensor —</option>
-            <option value="SNS-BNE-001">SNS-BNE-001 (Brisbane)</option>
-            <option value="SNS-SYD-002">SNS-SYD-002 (Sydney)</option>
-            <option value="SNS-MEL-003">SNS-MEL-003 (Melbourne)</option>
-            <option value="SNS-PER-004">SNS-PER-004 (Perth)</option>
-          </select>
-          <button class="verify-btn" id="verifyBtn">VERIFY HASH</button>
-          <div class="verify-result" id="verifyResult"></div>
+        <div class="contract-panel">
+          <div class="cfs">
+            <div class="cfh"><span style="color:var(--green)">●</span> assignId · registerSensor()</div>
+            <div class="cfb">
+              <input class="cinput" id="regSensorId" type="number" placeholder="Sensor ID (e.g. 1)">
+              <input class="cinput" id="regLocation" type="text" placeholder="Location (e.g. Brisbane, AU)">
+              <button class="cbtn write" id="regBtn" disabled onclick="registerSensor()">REGISTER SENSOR</button>
+              <div class="cresult" id="regResult"></div>
+            </div>
+          </div>
+          <div class="cfs">
+            <div class="cfh"><span style="color:var(--accent)">●</span> WeatherData · recordWeatherData()</div>
+            <div class="cfb">
+              <input class="cinput" id="recSensorId" type="number" placeholder="Sensor ID">
+              <button class="cbtn write" id="recBtn" disabled onclick="recordCurrentWeather()">RECORD CURRENT OBS</button>
+              <div class="cresult" id="recResult"></div>
+            </div>
+          </div>
+          <div class="cfs">
+            <div class="cfh"><span style="color:var(--yellow)">●</span> Read — isSensorRegistered() / getRecordCount()</div>
+            <div class="cfb">
+              <input class="cinput" id="chkSensorId" type="number" placeholder="Sensor ID">
+              <button class="cbtn read" id="chkBtn" disabled onclick="checkSensor()">CHECK SENSOR</button>
+              <div class="cresult" id="chkResult"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+  </div>
 
+  <!-- viewRecordData — Public Query Panel -->
+  <div class="panel" style="margin-top:1.5rem">
+    <div class="panel-header">
+      <span class="panel-title">PUBLIC DATA VERIFICATION — viewRecordData</span>
+      <span class="panel-meta" id="viewRecordPanelStatus">NO WALLET</span>
+    </div>
+    <div class="panel-body">
+      <div style="font-family:var(--mono);font-size:.62rem;color:var(--text3);margin-bottom:1rem;line-height:1.7;border-left:2px solid var(--accent);padding-left:.75rem">
+        Read-only public interface. Government agencies, insurers, or researchers can query sensor records by ID, date range, or verify a hash against stored on-chain data — no wallet or permissions required.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem">
+
+        <!-- Query by Sensor ID -->
+        <div class="cfs">
+          <div class="cfh"><span style="color:var(--accent)">●</span> viewRecordData · queryBySensorId()</div>
+          <div class="cfb">
+            <input class="cinput" id="qSensorId" type="number" placeholder="Sensor ID (e.g. 1)">
+            <button class="cbtn read" id="qSensorBtn" disabled onclick="queryBySensorId()">QUERY ALL RECORDS</button>
+            <div class="cresult" id="qSensorResult"></div>
+          </div>
+        </div>
+
+        <!-- Query by Date Range -->
+        <div class="cfs">
+          <div class="cfh"><span style="color:var(--green)">●</span> viewRecordData · queryByDateRange()</div>
+          <div class="cfb">
+            <input class="cinput" id="qRangeSensorId" type="number" placeholder="Sensor ID">
+            <input class="cinput" id="qRangeFrom" type="datetime-local">
+            <input class="cinput" id="qRangeTo" type="datetime-local">
+            <button class="cbtn read" id="qRangeBtn" disabled onclick="queryByDateRange()">QUERY DATE RANGE</button>
+            <div class="cresult" id="qRangeResult"></div>
+          </div>
+        </div>
+
+        <!-- Verify Hash -->
+        <div class="cfs">
+          <div class="cfh"><span style="color:var(--yellow)">●</span> viewRecordData · verifyHash()</div>
+          <div class="cfb">
+            <input class="cinput" id="qHashSensorId" type="number" placeholder="Sensor ID">
+            <input class="cinput" id="qHash" type="text" placeholder="0x weatherHash (bytes32)">
+            <button class="cbtn read" id="qHashBtn" disabled onclick="verifyHash()">VERIFY HASH</button>
+            <div class="cresult" id="qHashResult"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
   </div>
 
 </main>
 
 <footer>
-  <span>ENLIL v0.1 · IFB452 BLOCKCHAIN TECHNOLOGY · QUT</span>
+  <span>ENLIL v0.3 · IFB452 BLOCKCHAIN TECHNOLOGY · QUT</span>
   <span id="footerTime">—</span>
 </footer>
 
 <script>
 // ===================== CONFIG =====================
 const SENSORS = [
-  { id: 'SNS-BNE-001', lat: -27.4698, lon: 153.0251, city: 'Brisbane' },
-  { id: 'SNS-SYD-002', lat: -33.8688, lon: 151.2093, city: 'Sydney' },
-  { id: 'SNS-MEL-003', lat: -37.8136, lon: 144.9631, city: 'Melbourne' },
-  { id: 'SNS-PER-004', lat: -31.9505, lon: 115.8605, city: 'Perth' },
+  { id:'SNS-BNE-001', lat:-27.4698, lon:153.0251, city:'Brisbane', num:1 },
+  { id:'SNS-SYD-002', lat:-33.8688, lon:151.2093, city:'Sydney',    num:2 },
+  { id:'SNS-MEL-003', lat:-37.8136, lon:144.9631, city:'Melbourne', num:3 },
+  { id:'SNS-PER-004', lat:-31.9505, lon:115.8605, city:'Perth',     num:4 },
 ];
 
-const VAR_META = {
-  temperature_2m:       { label: 'Temperature (2m)',    unit: '°C',   color: '#00d4ff', min: -10, max: 50 },
-  relative_humidity_2m: { label: 'Rel. Humidity (2m)',  unit: '%',    color: '#0099cc', min: 0,   max: 100 },
-  dew_point_2m:         { label: 'Dew Point (2m)',      unit: '°C',   color: '#00e5a0', min: -10, max: 40 },
-  rain:                 { label: 'Rain',                unit: 'mm',   color: '#4d9fff', min: 0,   max: 50 },
-  wind_speed_10m:       { label: 'Wind Speed (10m)',    unit: 'km/h', color: '#f5c542', min: 0,   max: 120 },
-  surface_temperature:  { label: 'Surface Temp',       unit: '°C',   color: '#ff4d6a', min: -10, max: 70 },
+const API_VARS = 'temperature_2m,relative_humidity_2m,dew_point_2m,rain,wind_speed_10m,surface_temperature';
+
+const VM = {
+  temperature_2m:       { label:'Temperature (2m)',   unit:'°C',   color:'#00d4ff', max:50  },
+  relative_humidity_2m: { label:'Rel. Humidity (2m)', unit:'%',    color:'#0099cc', max:100 },
+  dew_point_2m:         { label:'Dew Point (2m)',     unit:'°C',   color:'#00e5a0', max:40  },
+  rain:                 { label:'Rain',               unit:'mm',   color:'#4d9fff', max:50  },
+  wind_speed_10m:       { label:'Wind Speed (10m)',   unit:'km/h', color:'#f5c542', max:120 },
+  surface_temperature:  { label:'Surface Temp',       unit:'°C',   color:'#ff4d6a', max:70  },
 };
 
-let weatherData = {};
-let activeSensor = SENSORS[0];
-let activeVar = 'temperature_2m';
-let chartCtx = null;
-let chartInstance = null;
-let blockNumber = 1842930;
+// ===================== HARDCODED SEPOLIA CONTRACTS =====================
+const ASSIGN_ID_ADDRESS   = '0xd9145CCE52D386f254917e481eB44e9943F39138';
+const WEATHER_DATA_ADDRESS = '0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8';
+const SEPOLIA_CHAIN_ID = 11155111n;
 
-// ===================== API FETCH =====================
-async function fetchWeather(sensor) {
-  const vars = 'temperature_2m,relative_humidity_2m,dew_point_2m,rain,wind_speed_10m,surface_temperature';
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${sensor.lat}&longitude=${sensor.lon}&hourly=${vars}&models=bom_access_global&timezone=auto&forecast_days=2`;
+let weatherData = {}, activeSensor = SENSORS[0], activeVar = 'temperature_2m';
+let chartCtx = null, blockNumber = 1842930;
+let provider = null, signer = null, walletAddress = null;
+let assignIdContract = null, weatherDataContract = null;
+
+// ===================== FULL ABIs =====================
+const ASSIGN_ABI = [
+  {"inputs":[{"internalType":"address","name":"_tech","type":"address"}],"name":"addTechnican","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"string","name":"_location","type":"string"}],"name":"registerSensor","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"_tech","type":"address"}],"name":"removeTechnicians","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"sensorId","type":"uint256"},{"indexed":false,"internalType":"address","name":"registeredBy","type":"address"}],"name":"SensorRegistered","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"tech","type":"address"}],"name":"TechnicianAdded","type":"event"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"tech","type":"address"}],"name":"TechnicianRemoved","type":"event"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"isSensorRegistered","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"sensorCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"sensors","outputs":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"bool","name":"registered","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"technicians","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"}
+];
+
+const WEATHER_ABI = [
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"uint256","name":"_rain","type":"uint256"},{"internalType":"uint256","name":"_wind","type":"uint256"},{"internalType":"uint256","name":"_humidity","type":"uint256"},{"internalType":"uint256","name":"_pressure","type":"uint256"},{"internalType":"uint256","name":"_temp","type":"uint256"},{"internalType":"bytes32","name":"_weatherHash","type":"bytes32"}],"name":"recordWeatherData","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"_sensorRegistered","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"sensorId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"},{"indexed":false,"internalType":"bytes32","name":"weatherHash","type":"bytes32"}],"name":"WeatherRecorded","type":"event"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getLatestRecord","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"}],"internalType":"struct WeatherData.WeatherRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getRecordCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getWeatherHistory","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"}],"internalType":"struct WeatherData.WeatherRecord[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"sensorRegistered","outputs":[{"internalType":"contract assignId_sensorRegistered","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"weatherHistory","outputs":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"}],"stateMutability":"view","type":"function"}
+];
+
+// ===================== METAMASK + AUTO CONTRACT INIT =====================
+async function connectMetaMask() {
+  if (walletAddress) { showToast('Already connected: ' + shortAddr(walletAddress), 'info'); return; }
+  if (!window.ethereum) { showToast('MetaMask not detected. Please install it from metamask.io', 'fail'); return; }
   try {
-    const res = await fetch(url);
-    const data = await res.json();
-    return data;
+    provider = new ethers.BrowserProvider(window.ethereum);
+
+    // Request accounts
+    await provider.send('eth_requestAccounts', []);
+    signer = await provider.getSigner();
+    walletAddress = await signer.getAddress();
+
+    // Check we're on Sepolia
+    const network = await provider.getNetwork();
+    if (network.chainId !== SEPOLIA_CHAIN_ID) {
+      showToast('Wrong network — switching to Sepolia…', 'info');
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0xaa36a7' }], // 11155111 in hex
+        });
+        // Re-init provider after switch
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        walletAddress = await signer.getAddress();
+      } catch(switchErr) {
+        showToast('Please switch MetaMask to Sepolia testnet manually.', 'fail');
+        return;
+      }
+    }
+
+    // Update wallet button
+    const btn = document.getElementById('mmBtn');
+    btn.innerHTML = `<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#00e5a0"/></svg> ${shortAddr(walletAddress)}`;
+    btn.classList.add('connected');
+
+    showToast('Wallet connected: ' + shortAddr(walletAddress), 'ok');
+    addTxItem('assign','SYSTEM',`wallet: ${shortAddr(walletAddress)} @ Sepolia`);
+
+    // Auto-wire both contracts immediately
+    initContracts();
+
+    // Handle account/network changes
+    window.ethereum.on('accountsChanged', async (accounts) => {
+      walletAddress = accounts[0];
+      signer = await provider.getSigner();
+      document.getElementById('mmBtn').innerHTML = `<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#00e5a0"/></svg> ${shortAddr(walletAddress)}`;
+      initContracts();
+    });
+    window.ethereum.on('chainChanged', () => window.location.reload());
+
   } catch(e) {
-    return null;
+    showToast('Connection failed: ' + (e.message||String(e)).slice(0,80), 'fail');
+    console.error(e);
   }
 }
 
-// ===================== CURRENT HOUR INDEX =====================
+function initContracts() {
+  assignIdContract    = new ethers.Contract(ASSIGN_ID_ADDRESS,    ASSIGN_ABI,   signer);
+  weatherDataContract = new ethers.Contract(WEATHER_DATA_ADDRESS, WEATHER_ABI,  signer);
+
+  // Update banner
+  document.getElementById('assignIdAddr').textContent    = ASSIGN_ID_ADDRESS;
+  document.getElementById('weatherDataAddr').textContent = WEATHER_DATA_ADDRESS;
+  setStatus('assign',  'ok', ASSIGN_ID_ADDRESS);
+  setStatus('weather', 'ok', WEATHER_DATA_ADDRESS);
+
+  document.getElementById('deployBtn').textContent = 'SEPOLIA ✓';
+  document.getElementById('deployBtn').disabled = true;
+  document.getElementById('contractPanelStatus').textContent = 'CONTRACTS LIVE';
+  document.getElementById('contractPanelStatus').style.color = 'var(--green)';
+
+  updateContractButtons();
+  showToast('Contracts connected on Sepolia!', 'ok');
+  addTxItem('real','SYSTEM',`assignId @ ${shortAddr(ASSIGN_ID_ADDRESS)}`);
+  addTxItem('real','SYSTEM',`weatherData @ ${shortAddr(WEATHER_DATA_ADDRESS)}`);
+
+  // Auto-init viewRecordData with the same signer
+  initViewContract(signer);
+}
+
+function setStatus(which, state, text) {
+  const el = document.getElementById(which==='assign'?'assignIdStatus':'weatherDataStatus');
+  el.className = 'contract-status ' + state;
+  el.textContent = state==='ok' ? '● LIVE ON SEPOLIA' : state==='pending' ? '⏳ ' + text : '● ' + text;
+}
+
+function updateContractButtons() {
+  const ok = !!assignIdContract && !!weatherDataContract;
+  ['regBtn','recBtn','chkBtn'].forEach(id => document.getElementById(id).disabled = !ok);
+}
+
+// Expose for console use if needed
+window.initContracts = initContracts;
+
+// ===================== viewRecordData CONTRACT =====================
+const VIEW_RECORD_ADDRESS = '0xf8e81D47203A594245E36C48e151709F0C19fBe8';
+
+let viewRecordContract = null;
+
+const VIEW_RECORD_ABI = [
+  {"inputs":[{"internalType":"address","name":"_assignId","type":"address"},{"internalType":"address","name":"_weatherData","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
+  {"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"assignId","type":"address"},{"indexed":false,"internalType":"address","name":"weatherData","type":"address"}],"name":"ContractsUpdated","type":"event"},
+  {"inputs":[],"name":"assignIdContract","outputs":[{"internalType":"contract IAssignId","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getRecordCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getSensorLocation","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"isSensorRegistered","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"uint256","name":"_from","type":"uint256"},{"internalType":"uint256","name":"_to","type":"uint256"}],"name":"queryByDateRange","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"queryBySensorId","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"queryLatest","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"bytes32","name":"_hash","type":"bytes32"}],"name":"verifyHash","outputs":[{"internalType":"bool","name":"found","type":"bool"},{"internalType":"uint256","name":"recordIndex","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"weatherDataContract","outputs":[{"internalType":"contract IWeatherData","name":"","type":"address"}],"stateMutability":"view","type":"function"}
+];
+
+function initViewContract(signerOrProvider) {
+  viewRecordContract = new ethers.Contract(VIEW_RECORD_ADDRESS, VIEW_RECORD_ABI, signerOrProvider);
+  document.getElementById('viewRecordAddr').textContent    = VIEW_RECORD_ADDRESS;
+  document.getElementById('viewRecordStatus').className    = 'contract-status ok';
+  document.getElementById('viewRecordStatus').textContent  = '● LIVE ON SEPOLIA';
+  document.getElementById('viewRecordPanelStatus').textContent = 'LIVE';
+  document.getElementById('viewRecordPanelStatus').style.color = 'var(--green)';
+  document.getElementById('deployBtn').textContent = 'ALL 3 LIVE ✓';
+  document.getElementById('deployBtn').disabled = true;
+  ['qSensorBtn','qRangeBtn','qHashBtn'].forEach(id => document.getElementById(id).disabled = false);
+  addTxItem('view','PUBLIC',`viewRecordData @ ${shortAddr(VIEW_RECORD_ADDRESS)}`);
+}
+
+
+
+// ── Helper: format a QueryResult tuple for display ──────────────
+function formatRecord(r, index) {
+  const ts = new Date(Number(r.timestamp) * 1000).toLocaleString();
+  return `[${index}] ${ts}
+  Location : ${r.location || '—'}
+  Temp     : ${(Number(r.temp)/10).toFixed(1)} °C
+  Humidity : ${Number(r.humidity)} %
+  Wind     : ${(Number(r.wind)/10).toFixed(1)} km/h
+  Rain     : ${(Number(r.rain)/10).toFixed(1)} mm
+  Hash     : ${r.weatherHash}
+  Verified : ${r.verified ? '✓' : '✗'}`;
+}
+
+// ── queryBySensorId ──────────────────────────────────────────────
+async function queryBySensorId() {
+  const id  = document.getElementById('qSensorId').value.trim();
+  const res = document.getElementById('qSensorResult');
+  if (!id) { showRes(res,'fail','⚠ Enter a sensor ID.'); return; }
+  if (!viewRecordContract) { showRes(res,'fail','⚠ Deploy viewRecordData first.'); return; }
+  try {
+    document.getElementById('qSensorBtn').disabled = true;
+    showRes(res,'info','⏳ Querying chain…');
+    addTxItem('view','PUBLIC',`queryBySensorId(${id})`);
+    const records = await viewRecordContract.queryBySensorId(BigInt(id));
+    if (records.length === 0) {
+      showRes(res,'info',`No records found for sensor ${id}.`);
+    } else {
+      const text = `✓ ${records.length} record(s) for sensor ${id}:\n\n` +
+        records.map((r,i) => formatRecord(r,i)).join('\n\n');
+      showRes(res,'ok', text);
+    }
+  } catch(e) {
+    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140));
+  } finally { document.getElementById('qSensorBtn').disabled = false; }
+}
+
+// ── queryByDateRange ─────────────────────────────────────────────
+async function queryByDateRange() {
+  const id   = document.getElementById('qRangeSensorId').value.trim();
+  const from = document.getElementById('qRangeFrom').value;
+  const to   = document.getElementById('qRangeTo').value;
+  const res  = document.getElementById('qRangeResult');
+  if (!id || !from || !to) { showRes(res,'fail','⚠ Fill in sensor ID, from and to.'); return; }
+  if (!viewRecordContract) { showRes(res,'fail','⚠ Deploy viewRecordData first.'); return; }
+  try {
+    document.getElementById('qRangeBtn').disabled = true;
+    showRes(res,'info','⏳ Querying chain…');
+    const fromTs = BigInt(Math.floor(new Date(from).getTime() / 1000));
+    const toTs   = BigInt(Math.floor(new Date(to).getTime()   / 1000));
+    addTxItem('view','PUBLIC',`queryByDateRange(${id})`);
+    const records = await viewRecordContract.queryByDateRange(BigInt(id), fromTs, toTs);
+    if (records.length === 0) {
+      showRes(res,'info','No records in that date range.');
+    } else {
+      const text = `✓ ${records.length} record(s) found:\n\n` +
+        records.map((r,i) => formatRecord(r,i)).join('\n\n');
+      showRes(res,'ok', text);
+    }
+  } catch(e) {
+    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140));
+  } finally { document.getElementById('qRangeBtn').disabled = false; }
+}
+
+// ── verifyHash ───────────────────────────────────────────────────
+async function verifyHash() {
+  const id   = document.getElementById('qHashSensorId').value.trim();
+  const hash = document.getElementById('qHash').value.trim();
+  const res  = document.getElementById('qHashResult');
+  if (!id || !hash) { showRes(res,'fail','⚠ Enter sensor ID and hash.'); return; }
+  if (!viewRecordContract) { showRes(res,'fail','⚠ Deploy viewRecordData first.'); return; }
+  try {
+    document.getElementById('qHashBtn').disabled = true;
+    showRes(res,'info','⏳ Verifying on chain…');
+    addTxItem('view','PUBLIC',`verifyHash(${id})`);
+    const [found, recordIndex, timestamp] = await viewRecordContract.verifyHash(BigInt(id), hash);
+    if (found) {
+      const ts = new Date(Number(timestamp) * 1000).toLocaleString();
+      showRes(res,'ok',
+        `✓ HASH VERIFIED\nFound at record index: ${recordIndex}\nTimestamp: ${ts}\nHash: ${hash}`);
+    } else {
+      showRes(res,'fail',`✗ Hash not found for sensor ${id}.\nNo matching on-chain record.`);
+    }
+  } catch(e) {
+    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140));
+  } finally { document.getElementById('qHashBtn').disabled = false; }
+}
+
+// ===================== CONTRACT CALLS =====================
+async function registerSensor() {
+  const id  = document.getElementById('regSensorId').value.trim();
+  const loc = document.getElementById('regLocation').value.trim();
+  const res = document.getElementById('regResult');
+  if (!id || !loc) { showRes(res,'fail','⚠ Enter sensor ID and location.'); return; }
+  if (!assignIdContract) { showRes(res,'fail','⚠ Connect contracts first.'); return; }
+  try {
+    document.getElementById('regBtn').disabled = true;
+    showRes(res,'info','⏳ Submitting transaction…');
+    const tx = await assignIdContract.registerSensor(BigInt(id), loc);
+    showRes(res,'info',`⏳ TX: ${tx.hash.slice(0,22)}…\nAwaiting confirmation…`);
+    addTxItem('assign', activeSensor.id, `registerSensor(${id}) pending`);
+    const receipt = await tx.wait();
+    showRes(res,'ok',`✓ REGISTERED\nSensor ID: ${id}\nLocation: ${loc}\nBlock: ${receipt.blockNumber}\nTX: ${tx.hash.slice(0,30)}…`);
+    addTxItem('real', activeSensor.id, `registerSensor(${id}) confirmed #${receipt.blockNumber}`);
+    blockNumber = receipt.blockNumber;
+    document.getElementById('blockNum').textContent = `BLOCK #${blockNumber.toLocaleString()}`;
+  } catch(e) {
+    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,120));
+  } finally { document.getElementById('regBtn').disabled = false; }
+}
+
+async function recordCurrentWeather() {
+  const id  = document.getElementById('recSensorId').value.trim();
+  const res = document.getElementById('recResult');
+  if (!id) { showRes(res,'fail','⚠ Enter sensor ID.'); return; }
+  if (!weatherDataContract) { showRes(res,'fail','⚠ Connect contracts first.'); return; }
+  const data = weatherData[activeSensor.id];
+  if (!data?.hourly) { showRes(res,'fail','⚠ Weather data not loaded.'); return; }
+  try {
+    document.getElementById('recBtn').disabled = true;
+    const h = data.hourly;
+    const idx = getCurrentHourIndex(h.time);
+    const temp  = Math.round((h.temperature_2m[idx]      ?? 0) * 10);
+    const rain  = Math.round((h.rain[idx]                 ?? 0) * 10);
+    const wind  = Math.round((h.wind_speed_10m[idx]       ?? 0) * 10);
+    const humid = Math.round( h.relative_humidity_2m[idx] ?? 0);
+    const pres  = 10132;
+    const wHash = ethers.solidityPackedKeccak256(
+      ['uint256','uint256','uint256','uint256','uint256','uint256','uint256'],
+      [BigInt(id),BigInt(rain),BigInt(wind),BigInt(humid),BigInt(pres),BigInt(temp),BigInt(Math.floor(Date.now()/1000))]
+    );
+    showRes(res,'info',`⏳ Recording obs for sensor ${id}…`);
+    const tx = await weatherDataContract.recordWeatherData(
+      BigInt(id),BigInt(rain),BigInt(wind),BigInt(humid),BigInt(pres),BigInt(temp),wHash
+    );
+    showRes(res,'info',`⏳ TX: ${tx.hash.slice(0,22)}…\nAwaiting confirmation…`);
+    addTxItem('record', activeSensor.id, `recordWeatherData(${id}) pending`);
+    const receipt = await tx.wait();
+    showRes(res,'ok',`✓ OBS RECORDED\nSensor: ${id}\nTemp: ${temp/10}°C  Wind: ${wind/10}km/h\nHumid: ${humid}%  Rain: ${rain/10}mm\nBlock: ${receipt.blockNumber}\nHash: ${wHash.slice(0,24)}…`);
+    addTxItem('real', activeSensor.id, `recordWeatherData(${id}) confirmed #${receipt.blockNumber}`);
+    blockNumber = receipt.blockNumber;
+    document.getElementById('blockNum').textContent = `BLOCK #${blockNumber.toLocaleString()}`;
+  } catch(e) {
+    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,120));
+  } finally { document.getElementById('recBtn').disabled = false; }
+}
+
+async function checkSensor() {
+  const id  = document.getElementById('chkSensorId').value.trim();
+  const res = document.getElementById('chkResult');
+  if (!id) { showRes(res,'fail','⚠ Enter sensor ID.'); return; }
+  if (!assignIdContract || !weatherDataContract) { showRes(res,'fail','⚠ Connect contracts first.'); return; }
+  try {
+    document.getElementById('chkBtn').disabled = true;
+    showRes(res,'info','⏳ Reading from chain…');
+    const isReg  = await assignIdContract.isSensorRegistered(BigInt(id));
+    const count  = await weatherDataContract.getRecordCount(BigInt(id));
+    showRes(res, isReg?'ok':'fail',
+      `Sensor ${id}: ${isReg ? '✓ REGISTERED' : '✗ NOT REGISTERED'}\nRecord count: ${count.toString()}`
+    );
+    addTxItem('view', activeSensor.id, `isSensorRegistered(${id}) → ${isReg}`);
+  } catch(e) {
+    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,120));
+  } finally { document.getElementById('chkBtn').disabled = false; }
+}
+
+function showRes(el, type, text) {
+  el.className = 'cresult ' + type;
+  el.textContent = text;
+}
+
+// ===================== WEATHER API =====================
+async function fetchWeather(sensor) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${sensor.lat}&longitude=${sensor.lon}&hourly=${API_VARS}&models=bom_access_global&timezone=auto&forecast_days=2`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch(e) { console.error('API error:', e); return null; }
+}
+
 function getCurrentHourIndex(times) {
-  const now = new Date();
-  const nowStr = now.toISOString().slice(0, 13);
+  const nowStr = new Date().toISOString().slice(0,13);
   let idx = 0;
-  for (let i = 0; i < times.length; i++) {
-    if (times[i].slice(0, 13) <= nowStr) idx = i;
-  }
+  for (let i = 0; i < times.length; i++) { if (times[i].slice(0,13) <= nowStr) idx = i; }
   return idx;
 }
 
-// ===================== UPDATE STATS =====================
-function updateStats(data, sensorId) {
+// ===================== STATS =====================
+function updateStats(data) {
   const h = data.hourly;
   const idx = getCurrentHourIndex(h.time);
-
-  const vals = {
-    temperature_2m: h.temperature_2m[idx],
+  const v = {
+    temperature_2m:       h.temperature_2m[idx],
     relative_humidity_2m: h.relative_humidity_2m[idx],
-    dew_point_2m: h.dew_point_2m[idx],
-    rain: h.rain[idx],
-    wind_speed_10m: h.wind_speed_10m[idx],
-    surface_temperature: h.surface_temperature[idx],
+    dew_point_2m:         h.dew_point_2m[idx],
+    rain:                 h.rain[idx],
+    wind_speed_10m:       h.wind_speed_10m[idx],
+    surface_temperature:  h.surface_temperature[idx],
   };
-
-  const prevVals = {
-    temperature_2m: h.temperature_2m[Math.max(0, idx-1)],
-    relative_humidity_2m: h.relative_humidity_2m[Math.max(0, idx-1)],
-    dew_point_2m: h.dew_point_2m[Math.max(0, idx-1)],
-    rain: h.rain[Math.max(0, idx-1)],
-    wind_speed_10m: h.wind_speed_10m[Math.max(0, idx-1)],
-    surface_temperature: h.surface_temperature[Math.max(0, idx-1)],
+  const p = {
+    temperature_2m:       h.temperature_2m[Math.max(0,idx-1)],
+    relative_humidity_2m: h.relative_humidity_2m[Math.max(0,idx-1)],
+    dew_point_2m:         h.dew_point_2m[Math.max(0,idx-1)],
+    rain:                 h.rain[Math.max(0,idx-1)],
+    wind_speed_10m:       h.wind_speed_10m[Math.max(0,idx-1)],
+    surface_temperature:  h.surface_temperature[Math.max(0,idx-1)],
   };
-
-  const setStatEls = (id, val, prev, unit, barId, maxVal) => {
+  const set = (id, val, prev, unit, barId, maxV) => {
     const el = document.getElementById(id);
-    if (el && val !== null && val !== undefined) {
-      el.innerHTML = `${val.toFixed(1)}<span class="stat-unit">${unit}</span>`;
-    }
-    const subEl = document.getElementById(id + 'Sub');
-    if (subEl && prev !== null) {
-      const diff = val - prev;
-      const sign = diff >= 0 ? '+' : '';
-      subEl.textContent = `${sign}${diff.toFixed(1)} from prev hr`;
-      subEl.style.color = diff > 0 ? 'var(--green)' : diff < 0 ? 'var(--red)' : 'var(--text3)';
+    if (el && val!=null) el.innerHTML = `${val.toFixed(1)}<span class="stat-unit">${unit}</span>`;
+    const sub = document.getElementById(id+'Sub');
+    if (sub && prev!=null) {
+      const d = val-prev;
+      sub.textContent = `${d>=0?'+':''}${d.toFixed(1)} from prev hr`;
+      sub.style.color = d>0?'var(--green)':d<0?'var(--red)':'var(--text3)';
     }
     const bar = document.getElementById(barId);
-    if (bar && maxVal) {
-      setTimeout(() => { bar.style.width = Math.min(100, (val / maxVal) * 100) + '%'; }, 100);
-    }
+    if (bar && maxV) setTimeout(()=>{ bar.style.width = Math.min(100,(val/maxV)*100)+'%'; },100);
   };
-
-  setStatEls('statTemp',  vals.temperature_2m,        prevVals.temperature_2m,        '°C',   'barTemp', 50);
-  setStatEls('statHum',   vals.relative_humidity_2m,  prevVals.relative_humidity_2m,  '%',    'barHum',  100);
-  setStatEls('statDew',   vals.dew_point_2m,           prevVals.dew_point_2m,           '°C',   'barDew',  40);
-  setStatEls('statWind',  vals.wind_speed_10m,         prevVals.wind_speed_10m,         'km/h', 'barWind', 100);
-  setStatEls('statRain',  vals.rain,                   prevVals.rain,                   'mm',   'barRain', 20);
-  setStatEls('statSurf',  vals.surface_temperature,    prevVals.surface_temperature,    '°C',   'barSurf', 70);
-
-  // Gauges
-  updateGauges(vals, idx, h);
-  document.getElementById('gaugeTime').textContent = h.time[idx]?.replace('T', ' ') ?? '—';
+  set('statTemp', v.temperature_2m,       p.temperature_2m,       '°C',   'barTemp', 50);
+  set('statHum',  v.relative_humidity_2m, p.relative_humidity_2m, '%',    'barHum',  100);
+  set('statDew',  v.dew_point_2m,          p.dew_point_2m,          '°C',   'barDew',  40);
+  set('statWind', v.wind_speed_10m,        p.wind_speed_10m,        'km/h', 'barWind', 100);
+  set('statRain', v.rain,                  p.rain,                  'mm',   'barRain', 20);
+  set('statSurf', v.surface_temperature,   p.surface_temperature,   '°C',   'barSurf', 70);
+  updateGauges(v, h.time[idx]);
 }
 
-function updateGauges(vals, idx, h) {
+function updateGauges(v, timeStr) {
   const items = [
-    { key: 'temperature_2m', val: vals.temperature_2m, color: '#00d4ff', max: 50 },
-    { key: 'relative_humidity_2m', val: vals.relative_humidity_2m, color: '#0099cc', max: 100 },
-    { key: 'wind_speed_10m', val: vals.wind_speed_10m, color: '#f5c542', max: 120 },
-    { key: 'rain', val: vals.rain, color: '#4d9fff', max: 20 },
-    { key: 'surface_temperature', val: vals.surface_temperature, color: '#ff4d6a', max: 70 },
+    { key:'temperature_2m',       val:v.temperature_2m,       color:'#00d4ff', max:50  },
+    { key:'relative_humidity_2m', val:v.relative_humidity_2m, color:'#0099cc', max:100 },
+    { key:'wind_speed_10m',       val:v.wind_speed_10m,       color:'#f5c542', max:120 },
+    { key:'rain',                 val:v.rain,                 color:'#4d9fff', max:20  },
+    { key:'surface_temperature',  val:v.surface_temperature,  color:'#ff4d6a', max:70  },
   ];
-  const gl = document.getElementById('gaugeList');
-  gl.innerHTML = items.map(it => {
-    const m = VAR_META[it.key];
-    const pct = it.val !== null ? Math.min(100, (it.val / it.max) * 100) : 0;
-    const display = it.val !== null ? it.val.toFixed(1) : '—';
+  document.getElementById('gaugeList').innerHTML = items.map(it => {
+    const m = VM[it.key];
+    const pct = it.val!=null ? Math.min(100,(it.val/it.max)*100) : 0;
     return `<div class="gauge-item">
-      <label>${m.label}<span>${display} ${m.unit}</span></label>
-      <div class="gauge-track">
-        <div class="gauge-fill" style="width:${pct}%;background:${it.color};"></div>
-      </div>
+      <label>${m.label}<span>${it.val!=null?it.val.toFixed(1):'—'} ${m.unit}</span></label>
+      <div class="gauge-track"><div class="gauge-fill" style="width:${pct}%;background:${it.color}"></div></div>
     </div>`;
   }).join('');
+  document.getElementById('gaugeTime').textContent = timeStr?.replace('T',' ') ?? '—';
 }
 
 // ===================== CHART =====================
 function renderChart(data, varName) {
   const h = data.hourly;
   const idx = getCurrentHourIndex(h.time);
-  const start = Math.max(0, idx - 12);
-  const end = Math.min(h.time.length - 1, idx + 12);
-
-  const labels = h.time.slice(start, end+1).map(t => {
+  const start = Math.max(0, idx-12);
+  const end   = Math.min(h.time.length-1, idx+12);
+  const labels = h.time.slice(start,end+1).map(t => {
     const d = new Date(t);
-    return d.getHours().toString().padStart(2,'0') + ':00';
+    return d.getHours().toString().padStart(2,'0')+':00';
   });
-  const values = h[varName].slice(start, end+1);
-  const meta = VAR_META[varName];
+  const values = h[varName].slice(start,end+1);
+  const meta = VM[varName];
 
   const canvas = document.getElementById('mainChart');
-  const loading = document.getElementById('chartLoading');
-  loading.style.display = 'none';
+  document.getElementById('chartLoading').style.display = 'none';
   canvas.style.display = 'block';
 
   const wrap = document.getElementById('chartWrap');
-  canvas.width = wrap.clientWidth;
+  canvas.width  = wrap.clientWidth;
   canvas.height = 220;
-
   if (!chartCtx) chartCtx = canvas.getContext('2d');
   const ctx = chartCtx;
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const padL = 44, padR = 16, padT = 12, padB = 30;
-  const cw = canvas.width - padL - padR;
-  const ch = canvas.height - padT - padB;
+  const pL=44,pR=16,pT=12,pB=30;
+  const cw=canvas.width-pL-pR, ch=canvas.height-pT-pB;
+  const valid = values.filter(v=>v!=null);
+  const minV = Math.min(...valid)-1, maxV = Math.max(...valid)+1, range = maxV-minV||1;
+  const xS = i => pL + (i/(labels.length-1))*cw;
+  const yS = v => pT + ch - ((v-minV)/range)*ch;
 
-  const validVals = values.filter(v => v !== null);
-  const minVal = Math.min(...validVals) - 1;
-  const maxVal = Math.max(...validVals) + 1;
-  const range = maxVal - minVal || 1;
-
-  const xScale = i => padL + (i / (labels.length - 1)) * cw;
-  const yScale = v => padT + ch - ((v - minVal) / range) * ch;
-
-  // Grid lines
-  ctx.strokeStyle = 'rgba(30,35,48,0.8)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++) {
-    const y = padT + (ch / 4) * i;
-    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cw, y); ctx.stroke();
-    const gridVal = maxVal - (range / 4) * i;
-    ctx.fillStyle = 'rgba(77,85,102,0.8)';
-    ctx.font = `9px 'Space Mono', monospace`;
-    ctx.fillText(gridVal.toFixed(0), 4, y + 3);
+  // grid
+  ctx.strokeStyle='rgba(30,35,48,.8)'; ctx.lineWidth=1;
+  for (let i=0;i<=4;i++) {
+    const y = pT+(ch/4)*i;
+    ctx.beginPath(); ctx.moveTo(pL,y); ctx.lineTo(pL+cw,y); ctx.stroke();
+    ctx.fillStyle='rgba(77,85,102,.8)'; ctx.font=`9px 'Space Mono',monospace`;
+    ctx.fillText((maxV-(range/4)*i).toFixed(0), 4, y+3);
   }
-
-  // Area fill
-  const grad = ctx.createLinearGradient(0, padT, 0, padT + ch);
-  grad.addColorStop(0, meta.color + '30');
-  grad.addColorStop(1, meta.color + '00');
+  // area
+  const grad = ctx.createLinearGradient(0,pT,0,pT+ch);
+  grad.addColorStop(0, meta.color+'30'); grad.addColorStop(1, meta.color+'00');
   ctx.beginPath();
-  values.forEach((v, i) => {
-    if (v === null) return;
-    const x = xScale(i), y = yScale(v);
-    i === 0 || values[i-1] === null ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  values.forEach((v,i) => {
+    if (v==null) return;
+    (i===0||values[i-1]==null) ? ctx.moveTo(xS(i),yS(v)) : ctx.lineTo(xS(i),yS(v));
   });
-  ctx.lineTo(xScale(values.length - 1), padT + ch);
-  ctx.lineTo(xScale(0), padT + ch);
-  ctx.closePath();
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  // Line
-  ctx.beginPath();
-  ctx.strokeStyle = meta.color;
-  ctx.lineWidth = 2;
-  ctx.lineJoin = 'round';
-  values.forEach((v, i) => {
-    if (v === null) return;
-    const x = xScale(i), y = yScale(v);
-    i === 0 || values[i-1] === null ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  ctx.lineTo(xS(values.length-1),pT+ch); ctx.lineTo(xS(0),pT+ch);
+  ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+  // line
+  ctx.beginPath(); ctx.strokeStyle=meta.color; ctx.lineWidth=2; ctx.lineJoin='round';
+  values.forEach((v,i) => {
+    if (v==null) return;
+    (i===0||values[i-1]==null) ? ctx.moveTo(xS(i),yS(v)) : ctx.lineTo(xS(i),yS(v));
   });
   ctx.stroke();
-
-  // Current hour marker
-  const curOffset = idx - start;
-  if (curOffset >= 0 && curOffset < values.length && values[curOffset] !== null) {
-    const cx_ = xScale(curOffset);
-    const cy_ = yScale(values[curOffset]);
-    ctx.beginPath();
-    ctx.arc(cx_, cy_, 5, 0, Math.PI * 2);
-    ctx.fillStyle = meta.color;
-    ctx.fill();
-    ctx.strokeStyle = '#0a0c10';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Value label
-    ctx.fillStyle = meta.color;
-    ctx.font = `bold 10px 'Space Mono', monospace`;
-    ctx.fillText(`${values[curOffset]?.toFixed(1)} ${meta.unit}`, cx_ + 8, cy_ - 6);
+  // current dot
+  const co = idx-start;
+  if (co>=0 && co<values.length && values[co]!=null) {
+    const cx_=xS(co), cy_=yS(values[co]);
+    ctx.beginPath(); ctx.arc(cx_,cy_,5,0,Math.PI*2);
+    ctx.fillStyle=meta.color; ctx.fill();
+    ctx.strokeStyle='#0a0c10'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle=meta.color; ctx.font=`bold 10px 'Space Mono',monospace`;
+    ctx.fillText(`${values[co]?.toFixed(1)} ${meta.unit}`, cx_+8, cy_-6);
   }
-
-  // X-axis labels
-  ctx.fillStyle = 'rgba(77,85,102,0.8)';
-  ctx.font = `8px 'Space Mono', monospace`;
-  const step = Math.ceil(labels.length / 8);
-  labels.forEach((l, i) => {
-    if (i % step !== 0) return;
-    ctx.fillText(l, xScale(i) - 12, padT + ch + 18);
-  });
-
+  // x labels
+  ctx.fillStyle='rgba(77,85,102,.8)'; ctx.font=`8px 'Space Mono',monospace`;
+  const step = Math.ceil(labels.length/8);
+  labels.forEach((l,i) => { if (i%step===0) ctx.fillText(l, xS(i)-12, pT+ch+18); });
   document.getElementById('chartMeta').textContent = `${meta.label} · ${meta.unit}`;
 }
 
-// ===================== BLOCKCHAIN FEED =====================
+// ===================== TX FEED =====================
 function fakeHash() {
-  return '0x' + Array.from({length: 8}, () => Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
+  return '0x'+Array.from({length:8},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
 }
-
 function addTxItem(type, sensorId, extra) {
   const feed = document.getElementById('txFeed');
-  const types = { record: 'RECORD', assign: 'ASSIGN', view: 'VIEW' };
-  const now = new Date();
-  const timeStr = now.toTimeString().slice(0, 8);
-  blockNumber++;
+  const labels = { record:'RECORD', assign:'ASSIGN', view:'VIEW', real:'ON-CHAIN' };
+  const timeStr = new Date().toTimeString().slice(0,8);
+  if (type!=='real') blockNumber++;
   document.getElementById('blockNum').textContent = `BLOCK #${blockNumber.toLocaleString()}`;
-
   const el = document.createElement('div');
   el.className = 'tx-item';
   el.innerHTML = `
-    <div class="tx-top">
-      <span class="tx-hash">${fakeHash()}</span>
-      <span class="tx-time">${timeStr}</span>
-    </div>
-    <div class="tx-top" style="margin-top:2px;">
-      <span class="tx-sensor">${sensorId}</span>
-      <span class="tx-type ${type}">${types[type]}</span>
-    </div>
-    <div class="tx-data">${extra}</div>
-  `;
+    <div class="tx-top"><span class="tx-hash">${fakeHash()}</span><span class="tx-time">${timeStr}</span></div>
+    <div class="tx-top" style="margin-top:2px"><span class="tx-sensor">${sensorId}</span><span class="tx-type ${type}">${labels[type]||type}</span></div>
+    <div class="tx-data">${extra}</div>`;
   feed.insertBefore(el, feed.firstChild);
-  // Keep max 8
   while (feed.children.length > 8) feed.removeChild(feed.lastChild);
 }
 
 function seedTxFeed() {
   SENSORS.forEach(s => addTxItem('assign', s.id, `assignID() — lat:${s.lat} lon:${s.lon}`));
 }
-
 function scheduleRecordTx() {
   function go() {
-    const s = SENSORS[Math.floor(Math.random() * SENSORS.length)];
-    const hash = '0x' + Array.from({length: 32}, () => Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
-    addTxItem('record', s.id, `recordData() sha256: ${hash.slice(0,22)}…`);
-    setTimeout(go, 3000 + Math.random() * 5000);
+    const s = SENSORS[Math.floor(Math.random()*SENSORS.length)];
+    const h = '0x'+Array.from({length:16},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
+    addTxItem('record', s.id, `recordData() sha256:${h.slice(0,18)}…`);
+    setTimeout(go, 3000+Math.random()*5000);
   }
   setTimeout(go, 1500);
 }
 
-// ===================== VERIFY HASH =====================
-document.getElementById('verifyBtn').addEventListener('click', () => {
-  const input = document.getElementById('verifyInput').value.trim();
-  const sensor = document.getElementById('verifySensor').value;
-  const result = document.getElementById('verifyResult');
+// ===================== HELPERS =====================
+function showToast(msg, type='info') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(()=>t.remove(), 4000);
+}
+function shortAddr(a) { return a ? a.slice(0,6)+'…'+a.slice(-4) : ''; }
 
-  if (!input || !sensor) {
-    result.className = 'verify-result fail';
-    result.textContent = '⚠ Please enter a TX hash and select a sensor.';
-    return;
-  }
-
-  // Simulate a verification (50/50 for demo)
-  result.className = '';
-  result.textContent = 'Verifying…';
-  result.style.display = 'block';
-
-  setTimeout(() => {
-    const isValid = Math.random() > 0.3;
-    if (isValid) {
-      const h = '0x' + Array.from({length: 32}, () => Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
-      result.className = 'verify-result ok';
-      result.innerHTML = `✓ HASH VERIFIED<br>SENSOR: ${sensor}<br>ON-CHAIN: ${h.slice(0,42)}…<br>STATUS: DATA INTEGRITY CONFIRMED`;
-    } else {
-      result.className = 'verify-result fail';
-      result.innerHTML = `✗ HASH MISMATCH<br>SENSOR: ${sensor}<br>STATUS: POSSIBLE DATA TAMPERING`;
-    }
-  }, 800);
-});
-
-// ===================== CHART VARIABLE TOGGLE =====================
+// ===================== CONTROLS =====================
 document.querySelectorAll('.chart-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.chart-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     activeVar = btn.dataset.var;
-    if (weatherData[activeSensor.id]) {
-      renderChart(weatherData[activeSensor.id], activeVar);
-    }
+    if (weatherData[activeSensor.id]) renderChart(weatherData[activeSensor.id], activeVar);
   });
 });
 
-// ===================== SENSOR SWITCHING =====================
 document.querySelectorAll('.sensor-tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('.sensor-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.sensor-tab').forEach(t=>t.classList.remove('active'));
     tab.classList.add('active');
-    const id = tab.dataset.id;
-    activeSensor = SENSORS.find(s => s.id === id);
+    activeSensor = SENSORS.find(s=>s.id===tab.dataset.id);
     loadSensor(activeSensor);
   });
 });
 
-// ===================== LOAD SENSOR DATA =====================
 async function loadSensor(sensor) {
   document.getElementById('chartLoading').style.display = 'flex';
   document.getElementById('mainChart').style.display = 'none';
-
   let data = weatherData[sensor.id];
   if (!data) {
     data = await fetchWeather(sensor);
     if (data) weatherData[sensor.id] = data;
   }
-
-  if (data && data.hourly) {
-    updateStats(data, sensor.id);
+  if (data?.hourly) {
+    updateStats(data);
     renderChart(data, activeVar);
-    addTxItem('record', sensor.id, `recordData() — auto batch @ ${new Date().toTimeString().slice(0,5)}`);
+    addTxItem('record', sensor.id, `fetchObs() — ${sensor.city} @ ${new Date().toTimeString().slice(0,5)}`);
   } else {
-    document.getElementById('chartLoading').innerHTML = `<div class="error-msg">⚠ BOM API unavailable<br><small>Check network or try again</small></div>`;
+    document.getElementById('chartLoading').innerHTML =
+      `<div style="font-family:var(--mono);font-size:.7rem;color:var(--red);text-align:center">
+        ⚠ BOM API unavailable<br><small style="color:var(--text3)">Check network or try again</small>
+      </div>`;
   }
 }
 
-// ===================== CLOCK =====================
-function updateClock() {
-  const now = new Date();
-  document.getElementById('footerTime').textContent = now.toUTCString().replace('GMT', 'UTC');
-}
-setInterval(updateClock, 1000);
-updateClock();
+function updateClock() { document.getElementById('footerTime').textContent = new Date().toUTCString().replace('GMT','UTC'); }
+setInterval(updateClock, 1000); updateClock();
+window.addEventListener('resize', () => { if (weatherData[activeSensor.id]) renderChart(weatherData[activeSensor.id], activeVar); });
 
-// ===================== RESIZE CHART =====================
-window.addEventListener('resize', () => {
-  if (weatherData[activeSensor.id]) renderChart(weatherData[activeSensor.id], activeVar);
-});
-
-// ===================== INIT =====================
 seedTxFeed();
 scheduleRecordTx();
 loadSensor(activeSensor);
