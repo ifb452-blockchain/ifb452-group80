@@ -230,7 +230,7 @@
       <div class="accent-bar" style="background:#4d9fff" id="barRain"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="4" width="8" height="2" stroke="#8892a4" stroke-width="1"/></svg>Surface Temp</div>
+      <div class="stat-label"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="1" y="4" width="8" height="2" stroke="#8892a4" stroke-width="1"/></svg>Apparent Temp</div>
       <div class="stat-value" id="statSurf">—<span class="stat-unit">°C</span></div>
       <div class="stat-change" id="statSurfSub">loading…</div>
       <div class="accent-bar" style="background:var(--red)" id="barSurf"></div>
@@ -250,7 +250,7 @@
           <button class="chart-btn" data-var="relative_humidity_2m">Humidity</button>
           <button class="chart-btn" data-var="wind_speed_10m">Wind</button>
           <button class="chart-btn" data-var="rain">Rain</button>
-          <button class="chart-btn" data-var="surface_temperature">Surface</button>
+          <button class="chart-btn" data-var="apparent_temperature">Feels Like</button>
         </div>
         <div class="chart-wrap" id="chartWrap">
           <div class="loading-overlay" id="chartLoading">
@@ -416,7 +416,7 @@ const SENSORS = [
   { id:'SNS-PER-004', lat:-31.9505, lon:115.8605, city:'Perth',     num:4 },
 ];
 
-const API_VARS = 'temperature_2m,relative_humidity_2m,dew_point_2m,rain,wind_speed_10m,surface_temperature';
+const API_VARS = 'temperature_2m,relative_humidity_2m,dew_point_2m,rain,wind_speed_10m,apparent_temperature';
 
 const VM = {
   temperature_2m:       { label:'Temperature (2m)',   unit:'°C',   color:'#00d4ff', max:50  },
@@ -424,28 +424,27 @@ const VM = {
   dew_point_2m:         { label:'Dew Point (2m)',     unit:'°C',   color:'#00e5a0', max:40  },
   rain:                 { label:'Rain',               unit:'mm',   color:'#4d9fff', max:50  },
   wind_speed_10m:       { label:'Wind Speed (10m)',   unit:'km/h', color:'#f5c542', max:120 },
-  surface_temperature:  { label:'Surface Temp',       unit:'°C',   color:'#ff4d6a', max:70  },
+  apparent_temperature: { label:'Apparent Temp',      unit:'°C',   color:'#ff4d6a', max:60  },
 };
 
 // ===================== HARDCODED SEPOLIA CONTRACTS =====================
-const ASSIGN_ID_ADDRESS   = '0xd9145CCE52D386f254917e481eB44e9943F39138';
+const ASSIGN_ID_ADDRESS    = '0xd9145CCE52D386f254917e481eB44e9943F39138';
 const WEATHER_DATA_ADDRESS = '0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8';
+const VIEW_RECORD_ADDRESS  = '0xf8e81D47203A594245E36C48e151709F0C19fBe8';
 const SEPOLIA_CHAIN_ID = 11155111n;
 
 let weatherData = {}, activeSensor = SENSORS[0], activeVar = 'temperature_2m';
 let chartCtx = null, blockNumber = 1842930;
 let provider = null, signer = null, walletAddress = null;
-let assignIdContract = null, weatherDataContract = null;
+let assignIdContract = null, weatherDataContract = null, viewRecordContract = null;
 
-// ===================== FULL ABIs =====================
+// ===================== ABIs =====================
 const ASSIGN_ABI = [
   {"inputs":[{"internalType":"address","name":"_tech","type":"address"}],"name":"addTechnican","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"string","name":"_location","type":"string"}],"name":"registerSensor","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[{"internalType":"address","name":"_tech","type":"address"}],"name":"removeTechnicians","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
   {"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"sensorId","type":"uint256"},{"indexed":false,"internalType":"address","name":"registeredBy","type":"address"}],"name":"SensorRegistered","type":"event"},
-  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"tech","type":"address"}],"name":"TechnicianAdded","type":"event"},
-  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"tech","type":"address"}],"name":"TechnicianRemoved","type":"event"},
   {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"isSensorRegistered","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"sensorCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
@@ -460,233 +459,90 @@ const WEATHER_ABI = [
   {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getLatestRecord","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"}],"internalType":"struct WeatherData.WeatherRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getRecordCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getWeatherHistory","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"}],"internalType":"struct WeatherData.WeatherRecord[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
-  {"inputs":[],"name":"sensorRegistered","outputs":[{"internalType":"contract assignId_sensorRegistered","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"weatherHistory","outputs":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"}],"stateMutability":"view","type":"function"}
+  {"inputs":[],"name":"sensorRegistered","outputs":[{"internalType":"contract assignId_sensorRegistered","name":"","type":"address"}],"stateMutability":"view","type":"function"}
 ];
 
-// ===================== METAMASK + AUTO CONTRACT INIT =====================
+const VIEW_RECORD_ABI = [
+  {"inputs":[{"internalType":"address","name":"_assignId","type":"address"},{"internalType":"address","name":"_weatherData","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"queryBySensorId","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"queryLatest","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"uint256","name":"_from","type":"uint256"},{"internalType":"uint256","name":"_to","type":"uint256"}],"name":"queryByDateRange","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"bytes32","name":"_hash","type":"bytes32"}],"name":"verifyHash","outputs":[{"internalType":"bool","name":"found","type":"bool"},{"internalType":"uint256","name":"recordIndex","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getRecordCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"isSensorRegistered","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getSensorLocation","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"assignIdContract","outputs":[{"internalType":"contract IAssignId","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"weatherDataContract","outputs":[{"internalType":"contract IWeatherData","name":"","type":"address"}],"stateMutability":"view","type":"function"}
+];
+
+// ===================== METAMASK =====================
 async function connectMetaMask() {
   if (walletAddress) { showToast('Already connected: ' + shortAddr(walletAddress), 'info'); return; }
   if (!window.ethereum) { showToast('MetaMask not detected. Please install it from metamask.io', 'fail'); return; }
   try {
     provider = new ethers.BrowserProvider(window.ethereum);
-
-    // Request accounts
     await provider.send('eth_requestAccounts', []);
     signer = await provider.getSigner();
     walletAddress = await signer.getAddress();
-
-    // Check we're on Sepolia
     const network = await provider.getNetwork();
     if (network.chainId !== SEPOLIA_CHAIN_ID) {
-      showToast('Wrong network — switching to Sepolia…', 'info');
+      showToast('Switching to Sepolia…', 'info');
       try {
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0xaa36a7' }], // 11155111 in hex
-        });
-        // Re-init provider after switch
+        await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId:'0xaa36a7' }] });
         provider = new ethers.BrowserProvider(window.ethereum);
         signer = await provider.getSigner();
         walletAddress = await signer.getAddress();
-      } catch(switchErr) {
-        showToast('Please switch MetaMask to Sepolia testnet manually.', 'fail');
-        return;
-      }
+      } catch(e) { showToast('Please switch MetaMask to Sepolia manually.','fail'); return; }
     }
-
-    // Update wallet button
     const btn = document.getElementById('mmBtn');
     btn.innerHTML = `<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#00e5a0"/></svg> ${shortAddr(walletAddress)}`;
     btn.classList.add('connected');
-
     showToast('Wallet connected: ' + shortAddr(walletAddress), 'ok');
     addTxItem('assign','SYSTEM',`wallet: ${shortAddr(walletAddress)} @ Sepolia`);
-
-    // Auto-wire both contracts immediately
     initContracts();
-
-    // Handle account/network changes
     window.ethereum.on('accountsChanged', async (accounts) => {
-      walletAddress = accounts[0];
-      signer = await provider.getSigner();
+      walletAddress = accounts[0]; signer = await provider.getSigner();
       document.getElementById('mmBtn').innerHTML = `<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#00e5a0"/></svg> ${shortAddr(walletAddress)}`;
       initContracts();
     });
     window.ethereum.on('chainChanged', () => window.location.reload());
-
-  } catch(e) {
-    showToast('Connection failed: ' + (e.message||String(e)).slice(0,80), 'fail');
-    console.error(e);
-  }
+  } catch(e) { showToast('Connection failed: ' + (e.message||String(e)).slice(0,80),'fail'); }
 }
 
 function initContracts() {
-  assignIdContract    = new ethers.Contract(ASSIGN_ID_ADDRESS,    ASSIGN_ABI,   signer);
-  weatherDataContract = new ethers.Contract(WEATHER_DATA_ADDRESS, WEATHER_ABI,  signer);
-
-  // Update banner
+  assignIdContract    = new ethers.Contract(ASSIGN_ID_ADDRESS,    ASSIGN_ABI,       signer);
+  weatherDataContract = new ethers.Contract(WEATHER_DATA_ADDRESS, WEATHER_ABI,      signer);
+  viewRecordContract  = new ethers.Contract(VIEW_RECORD_ADDRESS,  VIEW_RECORD_ABI,  signer);
   document.getElementById('assignIdAddr').textContent    = ASSIGN_ID_ADDRESS;
   document.getElementById('weatherDataAddr').textContent = WEATHER_DATA_ADDRESS;
-  setStatus('assign',  'ok', ASSIGN_ID_ADDRESS);
-  setStatus('weather', 'ok', WEATHER_DATA_ADDRESS);
-
-  document.getElementById('deployBtn').textContent = 'SEPOLIA ✓';
+  document.getElementById('viewRecordAddr').textContent  = VIEW_RECORD_ADDRESS;
+  setStatus('assign','ok'); setStatus('weather','ok'); setStatus('view','ok');
+  document.getElementById('deployBtn').textContent = 'ALL 3 LIVE ✓';
   document.getElementById('deployBtn').disabled = true;
   document.getElementById('contractPanelStatus').textContent = 'CONTRACTS LIVE';
   document.getElementById('contractPanelStatus').style.color = 'var(--green)';
-
-  updateContractButtons();
-  showToast('Contracts connected on Sepolia!', 'ok');
-  addTxItem('real','SYSTEM',`assignId @ ${shortAddr(ASSIGN_ID_ADDRESS)}`);
-  addTxItem('real','SYSTEM',`weatherData @ ${shortAddr(WEATHER_DATA_ADDRESS)}`);
-
-  // Auto-init viewRecordData with the same signer
-  initViewContract(signer);
-}
-
-function setStatus(which, state, text) {
-  const el = document.getElementById(which==='assign'?'assignIdStatus':'weatherDataStatus');
-  el.className = 'contract-status ' + state;
-  el.textContent = state==='ok' ? '● LIVE ON SEPOLIA' : state==='pending' ? '⏳ ' + text : '● ' + text;
-}
-
-function updateContractButtons() {
-  const ok = !!assignIdContract && !!weatherDataContract;
-  ['regBtn','recBtn','chkBtn'].forEach(id => document.getElementById(id).disabled = !ok);
-}
-
-// Expose for console use if needed
-window.initContracts = initContracts;
-
-// ===================== viewRecordData CONTRACT =====================
-const VIEW_RECORD_ADDRESS = '0xf8e81D47203A594245E36C48e151709F0C19fBe8';
-
-let viewRecordContract = null;
-
-const VIEW_RECORD_ABI = [
-  {"inputs":[{"internalType":"address","name":"_assignId","type":"address"},{"internalType":"address","name":"_weatherData","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
-  {"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"assignId","type":"address"},{"indexed":false,"internalType":"address","name":"weatherData","type":"address"}],"name":"ContractsUpdated","type":"event"},
-  {"inputs":[],"name":"assignIdContract","outputs":[{"internalType":"contract IAssignId","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getRecordCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"getSensorLocation","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"isSensorRegistered","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"uint256","name":"_from","type":"uint256"},{"internalType":"uint256","name":"_to","type":"uint256"}],"name":"queryByDateRange","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"queryBySensorId","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"}],"name":"queryLatest","outputs":[{"components":[{"internalType":"uint256","name":"sensorId","type":"uint256"},{"internalType":"string","name":"location","type":"string"},{"internalType":"uint256","name":"rain","type":"uint256"},{"internalType":"uint256","name":"wind","type":"uint256"},{"internalType":"uint256","name":"humidity","type":"uint256"},{"internalType":"uint256","name":"pressure","type":"uint256"},{"internalType":"uint256","name":"temp","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bytes32","name":"weatherHash","type":"bytes32"},{"internalType":"bool","name":"verified","type":"bool"}],"internalType":"struct viewRecordData.QueryResult","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"uint256","name":"_sensorId","type":"uint256"},{"internalType":"bytes32","name":"_hash","type":"bytes32"}],"name":"verifyHash","outputs":[{"internalType":"bool","name":"found","type":"bool"},{"internalType":"uint256","name":"recordIndex","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},
-  {"inputs":[],"name":"weatherDataContract","outputs":[{"internalType":"contract IWeatherData","name":"","type":"address"}],"stateMutability":"view","type":"function"}
-];
-
-function initViewContract(signerOrProvider) {
-  viewRecordContract = new ethers.Contract(VIEW_RECORD_ADDRESS, VIEW_RECORD_ABI, signerOrProvider);
-  document.getElementById('viewRecordAddr').textContent    = VIEW_RECORD_ADDRESS;
-  document.getElementById('viewRecordStatus').className    = 'contract-status ok';
-  document.getElementById('viewRecordStatus').textContent  = '● LIVE ON SEPOLIA';
   document.getElementById('viewRecordPanelStatus').textContent = 'LIVE';
   document.getElementById('viewRecordPanelStatus').style.color = 'var(--green)';
-  document.getElementById('deployBtn').textContent = 'ALL 3 LIVE ✓';
-  document.getElementById('deployBtn').disabled = true;
-  ['qSensorBtn','qRangeBtn','qHashBtn'].forEach(id => document.getElementById(id).disabled = false);
-  addTxItem('view','PUBLIC',`viewRecordData @ ${shortAddr(VIEW_RECORD_ADDRESS)}`);
+  ['regBtn','recBtn','chkBtn','qSensorBtn','qRangeBtn','qHashBtn'].forEach(id => document.getElementById(id).disabled = false);
+  showToast('All 3 contracts live on Sepolia!','ok');
+  addTxItem('real','SYSTEM',`all contracts connected`);
 }
 
-
-
-// ── Helper: format a QueryResult tuple for display ──────────────
-function formatRecord(r, index) {
-  const ts = new Date(Number(r.timestamp) * 1000).toLocaleString();
-  return `[${index}] ${ts}
-  Location : ${r.location || '—'}
-  Temp     : ${(Number(r.temp)/10).toFixed(1)} °C
-  Humidity : ${Number(r.humidity)} %
-  Wind     : ${(Number(r.wind)/10).toFixed(1)} km/h
-  Rain     : ${(Number(r.rain)/10).toFixed(1)} mm
-  Hash     : ${r.weatherHash}
-  Verified : ${r.verified ? '✓' : '✗'}`;
-}
-
-// ── queryBySensorId ──────────────────────────────────────────────
-async function queryBySensorId() {
-  const id  = document.getElementById('qSensorId').value.trim();
-  const res = document.getElementById('qSensorResult');
-  if (!id) { showRes(res,'fail','⚠ Enter a sensor ID.'); return; }
-  if (!viewRecordContract) { showRes(res,'fail','⚠ Deploy viewRecordData first.'); return; }
-  try {
-    document.getElementById('qSensorBtn').disabled = true;
-    showRes(res,'info','⏳ Querying chain…');
-    addTxItem('view','PUBLIC',`queryBySensorId(${id})`);
-    const records = await viewRecordContract.queryBySensorId(BigInt(id));
-    if (records.length === 0) {
-      showRes(res,'info',`No records found for sensor ${id}.`);
-    } else {
-      const text = `✓ ${records.length} record(s) for sensor ${id}:\n\n` +
-        records.map((r,i) => formatRecord(r,i)).join('\n\n');
-      showRes(res,'ok', text);
-    }
-  } catch(e) {
-    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140));
-  } finally { document.getElementById('qSensorBtn').disabled = false; }
-}
-
-// ── queryByDateRange ─────────────────────────────────────────────
-async function queryByDateRange() {
-  const id   = document.getElementById('qRangeSensorId').value.trim();
-  const from = document.getElementById('qRangeFrom').value;
-  const to   = document.getElementById('qRangeTo').value;
-  const res  = document.getElementById('qRangeResult');
-  if (!id || !from || !to) { showRes(res,'fail','⚠ Fill in sensor ID, from and to.'); return; }
-  if (!viewRecordContract) { showRes(res,'fail','⚠ Deploy viewRecordData first.'); return; }
-  try {
-    document.getElementById('qRangeBtn').disabled = true;
-    showRes(res,'info','⏳ Querying chain…');
-    const fromTs = BigInt(Math.floor(new Date(from).getTime() / 1000));
-    const toTs   = BigInt(Math.floor(new Date(to).getTime()   / 1000));
-    addTxItem('view','PUBLIC',`queryByDateRange(${id})`);
-    const records = await viewRecordContract.queryByDateRange(BigInt(id), fromTs, toTs);
-    if (records.length === 0) {
-      showRes(res,'info','No records in that date range.');
-    } else {
-      const text = `✓ ${records.length} record(s) found:\n\n` +
-        records.map((r,i) => formatRecord(r,i)).join('\n\n');
-      showRes(res,'ok', text);
-    }
-  } catch(e) {
-    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140));
-  } finally { document.getElementById('qRangeBtn').disabled = false; }
-}
-
-// ── verifyHash ───────────────────────────────────────────────────
-async function verifyHash() {
-  const id   = document.getElementById('qHashSensorId').value.trim();
-  const hash = document.getElementById('qHash').value.trim();
-  const res  = document.getElementById('qHashResult');
-  if (!id || !hash) { showRes(res,'fail','⚠ Enter sensor ID and hash.'); return; }
-  if (!viewRecordContract) { showRes(res,'fail','⚠ Deploy viewRecordData first.'); return; }
-  try {
-    document.getElementById('qHashBtn').disabled = true;
-    showRes(res,'info','⏳ Verifying on chain…');
-    addTxItem('view','PUBLIC',`verifyHash(${id})`);
-    const [found, recordIndex, timestamp] = await viewRecordContract.verifyHash(BigInt(id), hash);
-    if (found) {
-      const ts = new Date(Number(timestamp) * 1000).toLocaleString();
-      showRes(res,'ok',
-        `✓ HASH VERIFIED\nFound at record index: ${recordIndex}\nTimestamp: ${ts}\nHash: ${hash}`);
-    } else {
-      showRes(res,'fail',`✗ Hash not found for sensor ${id}.\nNo matching on-chain record.`);
-    }
-  } catch(e) {
-    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140));
-  } finally { document.getElementById('qHashBtn').disabled = false; }
+function setStatus(which, state) {
+  const ids = { assign:'assignIdStatus', weather:'weatherDataStatus', view:'viewRecordStatus' };
+  const el = document.getElementById(ids[which]);
+  if (!el) return;
+  el.className = 'contract-status ' + state;
+  el.textContent = state === 'ok' ? '● LIVE ON SEPOLIA' : '● CONNECT WALLET TO ACTIVATE';
 }
 
 // ===================== CONTRACT CALLS =====================
 async function registerSensor() {
-  const id  = document.getElementById('regSensorId').value.trim();
+  const id = document.getElementById('regSensorId').value.trim();
   const loc = document.getElementById('regLocation').value.trim();
   const res = document.getElementById('regResult');
   if (!id || !loc) { showRes(res,'fail','⚠ Enter sensor ID and location.'); return; }
-  if (!assignIdContract) { showRes(res,'fail','⚠ Connect contracts first.'); return; }
+  if (!assignIdContract) { showRes(res,'fail','⚠ Connect wallet first.'); return; }
   try {
     document.getElementById('regBtn').disabled = true;
     showRes(res,'info','⏳ Submitting transaction…');
@@ -694,26 +550,25 @@ async function registerSensor() {
     showRes(res,'info',`⏳ TX: ${tx.hash.slice(0,22)}…\nAwaiting confirmation…`);
     addTxItem('assign', activeSensor.id, `registerSensor(${id}) pending`);
     const receipt = await tx.wait();
-    showRes(res,'ok',`✓ REGISTERED\nSensor ID: ${id}\nLocation: ${loc}\nBlock: ${receipt.blockNumber}\nTX: ${tx.hash.slice(0,30)}…`);
+    showRes(res,'ok',`✓ REGISTERED\nSensor: ${id}\nLocation: ${loc}\nBlock: ${receipt.blockNumber}\nTX: ${tx.hash.slice(0,30)}…`);
     addTxItem('real', activeSensor.id, `registerSensor(${id}) confirmed #${receipt.blockNumber}`);
     blockNumber = receipt.blockNumber;
     document.getElementById('blockNum').textContent = `BLOCK #${blockNumber.toLocaleString()}`;
-  } catch(e) {
-    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,120));
-  } finally { document.getElementById('regBtn').disabled = false; }
+  } catch(e) { showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,120)); }
+  finally { document.getElementById('regBtn').disabled = false; }
 }
 
 async function recordCurrentWeather() {
   const id  = document.getElementById('recSensorId').value.trim();
   const res = document.getElementById('recResult');
   if (!id) { showRes(res,'fail','⚠ Enter sensor ID.'); return; }
-  if (!weatherDataContract) { showRes(res,'fail','⚠ Connect contracts first.'); return; }
+  if (!weatherDataContract) { showRes(res,'fail','⚠ Connect wallet first.'); return; }
   const data = weatherData[activeSensor.id];
   if (!data?.hourly) { showRes(res,'fail','⚠ Weather data not loaded.'); return; }
   try {
     document.getElementById('recBtn').disabled = true;
     const h = data.hourly;
-    const idx = getCurrentHourIndex(h.time);
+    const idx = getCurrentHourIndex(h.time, data.utc_offset_seconds);
     const temp  = Math.round((h.temperature_2m[idx]      ?? 0) * 10);
     const rain  = Math.round((h.rain[idx]                 ?? 0) * 10);
     const wind  = Math.round((h.wind_speed_10m[idx]       ?? 0) * 10);
@@ -724,9 +579,7 @@ async function recordCurrentWeather() {
       [BigInt(id),BigInt(rain),BigInt(wind),BigInt(humid),BigInt(pres),BigInt(temp),BigInt(Math.floor(Date.now()/1000))]
     );
     showRes(res,'info',`⏳ Recording obs for sensor ${id}…`);
-    const tx = await weatherDataContract.recordWeatherData(
-      BigInt(id),BigInt(rain),BigInt(wind),BigInt(humid),BigInt(pres),BigInt(temp),wHash
-    );
+    const tx = await weatherDataContract.recordWeatherData(BigInt(id),BigInt(rain),BigInt(wind),BigInt(humid),BigInt(pres),BigInt(temp),wHash);
     showRes(res,'info',`⏳ TX: ${tx.hash.slice(0,22)}…\nAwaiting confirmation…`);
     addTxItem('record', activeSensor.id, `recordWeatherData(${id}) pending`);
     const receipt = await tx.wait();
@@ -734,47 +587,102 @@ async function recordCurrentWeather() {
     addTxItem('real', activeSensor.id, `recordWeatherData(${id}) confirmed #${receipt.blockNumber}`);
     blockNumber = receipt.blockNumber;
     document.getElementById('blockNum').textContent = `BLOCK #${blockNumber.toLocaleString()}`;
-  } catch(e) {
-    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,120));
-  } finally { document.getElementById('recBtn').disabled = false; }
+  } catch(e) { showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,120)); }
+  finally { document.getElementById('recBtn').disabled = false; }
 }
 
 async function checkSensor() {
   const id  = document.getElementById('chkSensorId').value.trim();
   const res = document.getElementById('chkResult');
   if (!id) { showRes(res,'fail','⚠ Enter sensor ID.'); return; }
-  if (!assignIdContract || !weatherDataContract) { showRes(res,'fail','⚠ Connect contracts first.'); return; }
+  if (!assignIdContract || !weatherDataContract) { showRes(res,'fail','⚠ Connect wallet first.'); return; }
   try {
     document.getElementById('chkBtn').disabled = true;
     showRes(res,'info','⏳ Reading from chain…');
-    const isReg  = await assignIdContract.isSensorRegistered(BigInt(id));
-    const count  = await weatherDataContract.getRecordCount(BigInt(id));
-    showRes(res, isReg?'ok':'fail',
-      `Sensor ${id}: ${isReg ? '✓ REGISTERED' : '✗ NOT REGISTERED'}\nRecord count: ${count.toString()}`
-    );
+    const isReg = await assignIdContract.isSensorRegistered(BigInt(id));
+    const count = await weatherDataContract.getRecordCount(BigInt(id));
+    showRes(res, isReg?'ok':'fail', `Sensor ${id}: ${isReg ? '✓ REGISTERED' : '✗ NOT REGISTERED'}\nRecord count: ${count.toString()}`);
     addTxItem('view', activeSensor.id, `isSensorRegistered(${id}) → ${isReg}`);
-  } catch(e) {
-    showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,120));
-  } finally { document.getElementById('chkBtn').disabled = false; }
+  } catch(e) { showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,120)); }
+  finally { document.getElementById('chkBtn').disabled = false; }
 }
 
-function showRes(el, type, text) {
-  el.className = 'cresult ' + type;
-  el.textContent = text;
+function showRes(el, type, text) { el.className = 'cresult ' + type; el.textContent = text; }
+
+// ===================== viewRecordData QUERIES =====================
+function formatRecord(r, index) {
+  const ts = new Date(Number(r.timestamp) * 1000).toLocaleString();
+  return `[${index}] ${ts}\n  Location : ${r.location||'—'}\n  Temp     : ${(Number(r.temp)/10).toFixed(1)} °C\n  Humidity : ${Number(r.humidity)} %\n  Wind     : ${(Number(r.wind)/10).toFixed(1)} km/h\n  Rain     : ${(Number(r.rain)/10).toFixed(1)} mm\n  Hash     : ${r.weatherHash}\n  Verified : ${r.verified ? '✓' : '✗'}`;
+}
+
+async function queryBySensorId() {
+  const id = document.getElementById('qSensorId').value.trim();
+  const res = document.getElementById('qSensorResult');
+  if (!id) { showRes(res,'fail','⚠ Enter a sensor ID.'); return; }
+  if (!viewRecordContract) { showRes(res,'fail','⚠ Connect wallet first.'); return; }
+  try {
+    document.getElementById('qSensorBtn').disabled = true;
+    showRes(res,'info','⏳ Querying chain…');
+    addTxItem('view','PUBLIC',`queryBySensorId(${id})`);
+    const records = await viewRecordContract.queryBySensorId(BigInt(id));
+    showRes(res, records.length ? 'ok' : 'info', records.length ? `✓ ${records.length} record(s):\n\n` + records.map((r,i) => formatRecord(r,i)).join('\n\n') : `No records for sensor ${id}.`);
+  } catch(e) { showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140)); }
+  finally { document.getElementById('qSensorBtn').disabled = false; }
+}
+
+async function queryByDateRange() {
+  const id = document.getElementById('qRangeSensorId').value.trim();
+  const from = document.getElementById('qRangeFrom').value;
+  const to   = document.getElementById('qRangeTo').value;
+  const res  = document.getElementById('qRangeResult');
+  if (!id || !from || !to) { showRes(res,'fail','⚠ Fill in all fields.'); return; }
+  if (!viewRecordContract) { showRes(res,'fail','⚠ Connect wallet first.'); return; }
+  try {
+    document.getElementById('qRangeBtn').disabled = true;
+    showRes(res,'info','⏳ Querying chain…');
+    const fromTs = BigInt(Math.floor(new Date(from).getTime()/1000));
+    const toTs   = BigInt(Math.floor(new Date(to).getTime()/1000));
+    addTxItem('view','PUBLIC',`queryByDateRange(${id})`);
+    const records = await viewRecordContract.queryByDateRange(BigInt(id), fromTs, toTs);
+    showRes(res, records.length ? 'ok' : 'info', records.length ? `✓ ${records.length} record(s):\n\n` + records.map((r,i) => formatRecord(r,i)).join('\n\n') : 'No records in that date range.');
+  } catch(e) { showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140)); }
+  finally { document.getElementById('qRangeBtn').disabled = false; }
+}
+
+async function verifyHash() {
+  const id   = document.getElementById('qHashSensorId').value.trim();
+  const hash = document.getElementById('qHash').value.trim();
+  const res  = document.getElementById('qHashResult');
+  if (!id || !hash) { showRes(res,'fail','⚠ Enter sensor ID and hash.'); return; }
+  if (!viewRecordContract) { showRes(res,'fail','⚠ Connect wallet first.'); return; }
+  try {
+    document.getElementById('qHashBtn').disabled = true;
+    showRes(res,'info','⏳ Verifying on chain…');
+    addTxItem('view','PUBLIC',`verifyHash(${id})`);
+    const [found, recordIndex, timestamp] = await viewRecordContract.verifyHash(BigInt(id), hash);
+    if (found) {
+      showRes(res,'ok',`✓ HASH VERIFIED\nRecord index: ${recordIndex}\nTimestamp: ${new Date(Number(timestamp)*1000).toLocaleString()}\nHash: ${hash}`);
+    } else {
+      showRes(res,'fail',`✗ Hash not found for sensor ${id}.`);
+    }
+  } catch(e) { showRes(res,'fail','✗ ' + (e.reason||e.message||String(e)).slice(0,140)); }
+  finally { document.getElementById('qHashBtn').disabled = false; }
 }
 
 // ===================== WEATHER API =====================
 async function fetchWeather(sensor) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${sensor.lat}&longitude=${sensor.lon}&hourly=${API_VARS}&models=bom_access_global&timezone=auto&forecast_days=2`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${sensor.lat}&longitude=${sensor.lon}&hourly=${API_VARS}&timezone=auto&forecast_days=2`;
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
-  } catch(e) { console.error('API error:', e); return null; }
+  } catch(e) { console.error(`[ENLIL] ${sensor.id} error:`, e); return null; }
 }
 
-function getCurrentHourIndex(times) {
-  const nowStr = new Date().toISOString().slice(0,13);
+function getCurrentHourIndex(times, utcOffsetSeconds) {
+  const offsetMs = (utcOffsetSeconds || 36000) * 1000;
+  const localNow = new Date(Date.now() + offsetMs);
+  const nowStr = localNow.toISOString().slice(0, 13);
   let idx = 0;
   for (let i = 0; i < times.length; i++) { if (times[i].slice(0,13) <= nowStr) idx = i; }
   return idx;
@@ -783,14 +691,14 @@ function getCurrentHourIndex(times) {
 // ===================== STATS =====================
 function updateStats(data) {
   const h = data.hourly;
-  const idx = getCurrentHourIndex(h.time);
+  const idx = getCurrentHourIndex(h.time, data.utc_offset_seconds);
   const v = {
     temperature_2m:       h.temperature_2m[idx],
     relative_humidity_2m: h.relative_humidity_2m[idx],
     dew_point_2m:         h.dew_point_2m[idx],
     rain:                 h.rain[idx],
     wind_speed_10m:       h.wind_speed_10m[idx],
-    surface_temperature:  h.surface_temperature[idx],
+    apparent_temperature: h.apparent_temperature[idx],
   };
   const p = {
     temperature_2m:       h.temperature_2m[Math.max(0,idx-1)],
@@ -798,26 +706,22 @@ function updateStats(data) {
     dew_point_2m:         h.dew_point_2m[Math.max(0,idx-1)],
     rain:                 h.rain[Math.max(0,idx-1)],
     wind_speed_10m:       h.wind_speed_10m[Math.max(0,idx-1)],
-    surface_temperature:  h.surface_temperature[Math.max(0,idx-1)],
+    apparent_temperature: h.apparent_temperature[Math.max(0,idx-1)],
   };
   const set = (id, val, prev, unit, barId, maxV) => {
     const el = document.getElementById(id);
     if (el && val!=null) el.innerHTML = `${val.toFixed(1)}<span class="stat-unit">${unit}</span>`;
     const sub = document.getElementById(id+'Sub');
-    if (sub && prev!=null) {
-      const d = val-prev;
-      sub.textContent = `${d>=0?'+':''}${d.toFixed(1)} from prev hr`;
-      sub.style.color = d>0?'var(--green)':d<0?'var(--red)':'var(--text3)';
-    }
+    if (sub && prev!=null) { const d=val-prev; sub.textContent=`${d>=0?'+':''}${d.toFixed(1)} from prev hr`; sub.style.color=d>0?'var(--green)':d<0?'var(--red)':'var(--text3)'; }
     const bar = document.getElementById(barId);
-    if (bar && maxV) setTimeout(()=>{ bar.style.width = Math.min(100,(val/maxV)*100)+'%'; },100);
+    if (bar && maxV) setTimeout(()=>{ bar.style.width=Math.min(100,(val/maxV)*100)+'%'; },100);
   };
   set('statTemp', v.temperature_2m,       p.temperature_2m,       '°C',   'barTemp', 50);
   set('statHum',  v.relative_humidity_2m, p.relative_humidity_2m, '%',    'barHum',  100);
   set('statDew',  v.dew_point_2m,          p.dew_point_2m,          '°C',   'barDew',  40);
   set('statWind', v.wind_speed_10m,        p.wind_speed_10m,        'km/h', 'barWind', 100);
   set('statRain', v.rain,                  p.rain,                  'mm',   'barRain', 20);
-  set('statSurf', v.surface_temperature,   p.surface_temperature,   '°C',   'barSurf', 70);
+  set('statSurf', v.apparent_temperature,  p.apparent_temperature,  '°C',   'barSurf', 60);
   updateGauges(v, h.time[idx]);
 }
 
@@ -827,15 +731,12 @@ function updateGauges(v, timeStr) {
     { key:'relative_humidity_2m', val:v.relative_humidity_2m, color:'#0099cc', max:100 },
     { key:'wind_speed_10m',       val:v.wind_speed_10m,       color:'#f5c542', max:120 },
     { key:'rain',                 val:v.rain,                 color:'#4d9fff', max:20  },
-    { key:'surface_temperature',  val:v.surface_temperature,  color:'#ff4d6a', max:70  },
+    { key:'apparent_temperature', val:v.apparent_temperature, color:'#ff4d6a', max:60  },
   ];
   document.getElementById('gaugeList').innerHTML = items.map(it => {
     const m = VM[it.key];
     const pct = it.val!=null ? Math.min(100,(it.val/it.max)*100) : 0;
-    return `<div class="gauge-item">
-      <label>${m.label}<span>${it.val!=null?it.val.toFixed(1):'—'} ${m.unit}</span></label>
-      <div class="gauge-track"><div class="gauge-fill" style="width:${pct}%;background:${it.color}"></div></div>
-    </div>`;
+    return `<div class="gauge-item"><label>${m.label}<span>${it.val!=null?it.val.toFixed(1):'—'} ${m.unit}</span></label><div class="gauge-track"><div class="gauge-fill" style="width:${pct}%;background:${it.color}"></div></div></div>`;
   }).join('');
   document.getElementById('gaugeTime').textContent = timeStr?.replace('T',' ') ?? '—';
 }
@@ -843,163 +744,109 @@ function updateGauges(v, timeStr) {
 // ===================== CHART =====================
 function renderChart(data, varName) {
   const h = data.hourly;
-  const idx = getCurrentHourIndex(h.time);
+  const idx = getCurrentHourIndex(h.time, data.utc_offset_seconds);
   const start = Math.max(0, idx-12);
   const end   = Math.min(h.time.length-1, idx+12);
-  const labels = h.time.slice(start,end+1).map(t => {
-    const d = new Date(t);
-    return d.getHours().toString().padStart(2,'0')+':00';
-  });
+  const labels = h.time.slice(start,end+1).map(t => { const d=new Date(t); return d.getHours().toString().padStart(2,'0')+':00'; });
   const values = h[varName].slice(start,end+1);
   const meta = VM[varName];
-
   const canvas = document.getElementById('mainChart');
   document.getElementById('chartLoading').style.display = 'none';
   canvas.style.display = 'block';
-
   const wrap = document.getElementById('chartWrap');
-  canvas.width  = wrap.clientWidth;
-  canvas.height = 220;
+  canvas.width = wrap.clientWidth; canvas.height = 220;
   if (!chartCtx) chartCtx = canvas.getContext('2d');
   const ctx = chartCtx;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const pL=44,pR=16,pT=12,pB=30;
-  const cw=canvas.width-pL-pR, ch=canvas.height-pT-pB;
-  const valid = values.filter(v=>v!=null);
-  const minV = Math.min(...valid)-1, maxV = Math.max(...valid)+1, range = maxV-minV||1;
-  const xS = i => pL + (i/(labels.length-1))*cw;
-  const yS = v => pT + ch - ((v-minV)/range)*ch;
-
-  // grid
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const pL=44,pR=16,pT=12,pB=30,cw=canvas.width-pL-pR,ch=canvas.height-pT-pB;
+  const valid=values.filter(v=>v!=null);
+  const minV=Math.min(...valid)-1,maxV=Math.max(...valid)+1,range=maxV-minV||1;
+  const xS=i=>pL+(i/(labels.length-1))*cw;
+  const yS=v=>pT+ch-((v-minV)/range)*ch;
   ctx.strokeStyle='rgba(30,35,48,.8)'; ctx.lineWidth=1;
-  for (let i=0;i<=4;i++) {
-    const y = pT+(ch/4)*i;
-    ctx.beginPath(); ctx.moveTo(pL,y); ctx.lineTo(pL+cw,y); ctx.stroke();
-    ctx.fillStyle='rgba(77,85,102,.8)'; ctx.font=`9px 'Space Mono',monospace`;
-    ctx.fillText((maxV-(range/4)*i).toFixed(0), 4, y+3);
-  }
-  // area
-  const grad = ctx.createLinearGradient(0,pT,0,pT+ch);
-  grad.addColorStop(0, meta.color+'30'); grad.addColorStop(1, meta.color+'00');
+  for(let i=0;i<=4;i++){const y=pT+(ch/4)*i;ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+cw,y);ctx.stroke();ctx.fillStyle='rgba(77,85,102,.8)';ctx.font=`9px 'Space Mono',monospace`;ctx.fillText((maxV-(range/4)*i).toFixed(0),4,y+3);}
+  const grad=ctx.createLinearGradient(0,pT,0,pT+ch);
+  grad.addColorStop(0,meta.color+'30');grad.addColorStop(1,meta.color+'00');
   ctx.beginPath();
-  values.forEach((v,i) => {
-    if (v==null) return;
-    (i===0||values[i-1]==null) ? ctx.moveTo(xS(i),yS(v)) : ctx.lineTo(xS(i),yS(v));
-  });
-  ctx.lineTo(xS(values.length-1),pT+ch); ctx.lineTo(xS(0),pT+ch);
-  ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
-  // line
-  ctx.beginPath(); ctx.strokeStyle=meta.color; ctx.lineWidth=2; ctx.lineJoin='round';
-  values.forEach((v,i) => {
-    if (v==null) return;
-    (i===0||values[i-1]==null) ? ctx.moveTo(xS(i),yS(v)) : ctx.lineTo(xS(i),yS(v));
-  });
+  values.forEach((v,i)=>{if(v==null)return;(i===0||values[i-1]==null)?ctx.moveTo(xS(i),yS(v)):ctx.lineTo(xS(i),yS(v));});
+  ctx.lineTo(xS(values.length-1),pT+ch);ctx.lineTo(xS(0),pT+ch);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+  ctx.beginPath();ctx.strokeStyle=meta.color;ctx.lineWidth=2;ctx.lineJoin='round';
+  values.forEach((v,i)=>{if(v==null)return;(i===0||values[i-1]==null)?ctx.moveTo(xS(i),yS(v)):ctx.lineTo(xS(i),yS(v));});
   ctx.stroke();
-  // current dot
-  const co = idx-start;
-  if (co>=0 && co<values.length && values[co]!=null) {
-    const cx_=xS(co), cy_=yS(values[co]);
-    ctx.beginPath(); ctx.arc(cx_,cy_,5,0,Math.PI*2);
-    ctx.fillStyle=meta.color; ctx.fill();
-    ctx.strokeStyle='#0a0c10'; ctx.lineWidth=2; ctx.stroke();
-    ctx.fillStyle=meta.color; ctx.font=`bold 10px 'Space Mono',monospace`;
-    ctx.fillText(`${values[co]?.toFixed(1)} ${meta.unit}`, cx_+8, cy_-6);
-  }
-  // x labels
-  ctx.fillStyle='rgba(77,85,102,.8)'; ctx.font=`8px 'Space Mono',monospace`;
-  const step = Math.ceil(labels.length/8);
-  labels.forEach((l,i) => { if (i%step===0) ctx.fillText(l, xS(i)-12, pT+ch+18); });
-  document.getElementById('chartMeta').textContent = `${meta.label} · ${meta.unit}`;
+  const co=idx-start;
+  if(co>=0&&co<values.length&&values[co]!=null){const cx_=xS(co),cy_=yS(values[co]);ctx.beginPath();ctx.arc(cx_,cy_,5,0,Math.PI*2);ctx.fillStyle=meta.color;ctx.fill();ctx.strokeStyle='#0a0c10';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle=meta.color;ctx.font=`bold 10px 'Space Mono',monospace`;ctx.fillText(`${values[co]?.toFixed(1)} ${meta.unit}`,cx_+8,cy_-6);}
+  ctx.fillStyle='rgba(77,85,102,.8)';ctx.font=`8px 'Space Mono',monospace`;
+  const step=Math.ceil(labels.length/8);
+  labels.forEach((l,i)=>{if(i%step===0)ctx.fillText(l,xS(i)-12,pT+ch+18);});
+  document.getElementById('chartMeta').textContent=`${meta.label} · ${meta.unit}`;
 }
 
 // ===================== TX FEED =====================
-function fakeHash() {
-  return '0x'+Array.from({length:8},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
+function fakeHash(){return '0x'+Array.from({length:8},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');}
+function addTxItem(type,sensorId,extra){
+  const feed=document.getElementById('txFeed');
+  const labels={record:'RECORD',assign:'ASSIGN',view:'VIEW',real:'ON-CHAIN'};
+  const timeStr=new Date().toTimeString().slice(0,8);
+  if(type!=='real')blockNumber++;
+  document.getElementById('blockNum').textContent=`BLOCK #${blockNumber.toLocaleString()}`;
+  const el=document.createElement('div');el.className='tx-item';
+  el.innerHTML=`<div class="tx-top"><span class="tx-hash">${fakeHash()}</span><span class="tx-time">${timeStr}</span></div><div class="tx-top" style="margin-top:2px"><span class="tx-sensor">${sensorId}</span><span class="tx-type ${type}">${labels[type]||type}</span></div><div class="tx-data">${extra}</div>`;
+  feed.insertBefore(el,feed.firstChild);
+  while(feed.children.length>8)feed.removeChild(feed.lastChild);
 }
-function addTxItem(type, sensorId, extra) {
-  const feed = document.getElementById('txFeed');
-  const labels = { record:'RECORD', assign:'ASSIGN', view:'VIEW', real:'ON-CHAIN' };
-  const timeStr = new Date().toTimeString().slice(0,8);
-  if (type!=='real') blockNumber++;
-  document.getElementById('blockNum').textContent = `BLOCK #${blockNumber.toLocaleString()}`;
-  const el = document.createElement('div');
-  el.className = 'tx-item';
-  el.innerHTML = `
-    <div class="tx-top"><span class="tx-hash">${fakeHash()}</span><span class="tx-time">${timeStr}</span></div>
-    <div class="tx-top" style="margin-top:2px"><span class="tx-sensor">${sensorId}</span><span class="tx-type ${type}">${labels[type]||type}</span></div>
-    <div class="tx-data">${extra}</div>`;
-  feed.insertBefore(el, feed.firstChild);
-  while (feed.children.length > 8) feed.removeChild(feed.lastChild);
-}
+function seedTxFeed(){SENSORS.forEach(s=>addTxItem('assign',s.id,`assignID() — lat:${s.lat} lon:${s.lon}`));}
+function scheduleRecordTx(){function go(){const s=SENSORS[Math.floor(Math.random()*SENSORS.length)];const h='0x'+Array.from({length:16},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');addTxItem('record',s.id,`recordData() sha256:${h.slice(0,18)}…`);setTimeout(go,3000+Math.random()*5000);}setTimeout(go,1500);}
 
-function seedTxFeed() {
-  SENSORS.forEach(s => addTxItem('assign', s.id, `assignID() — lat:${s.lat} lon:${s.lon}`));
+// ===================== SENSOR LOADING =====================
+async function loadSensor(sensor) {
+  let data = weatherData[sensor.id];
+  if (data?.hourly) { updateStats(data); renderChart(data, activeVar); return; }
+  document.getElementById('chartLoading').style.display = 'flex';
+  document.getElementById('mainChart').style.display = 'none';
+  data = await fetchWeather(sensor);
+  if (data) weatherData[sensor.id] = data;
+  if (data?.hourly) { updateStats(data); renderChart(data, activeVar); addTxItem('record',sensor.id,`fetchObs() — ${sensor.city} @ ${new Date().toTimeString().slice(0,5)}`); }
+  else { document.getElementById('chartLoading').innerHTML=`<div style="font-family:var(--mono);font-size:.7rem;color:var(--red);text-align:center">⚠ API unavailable<br><small style="color:var(--text3)">Check network or try again</small></div>`; }
 }
-function scheduleRecordTx() {
-  function go() {
-    const s = SENSORS[Math.floor(Math.random()*SENSORS.length)];
-    const h = '0x'+Array.from({length:16},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');
-    addTxItem('record', s.id, `recordData() sha256:${h.slice(0,18)}…`);
-    setTimeout(go, 3000+Math.random()*5000);
-  }
-  setTimeout(go, 1500);
-}
-
-// ===================== HELPERS =====================
-function showToast(msg, type='info') {
-  const t = document.createElement('div');
-  t.className = `toast ${type}`; t.textContent = msg;
-  document.body.appendChild(t); setTimeout(()=>t.remove(), 4000);
-}
-function shortAddr(a) { return a ? a.slice(0,6)+'…'+a.slice(-4) : ''; }
 
 // ===================== CONTROLS =====================
 document.querySelectorAll('.chart-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.chart-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    activeVar = btn.dataset.var;
-    if (weatherData[activeSensor.id]) renderChart(weatherData[activeSensor.id], activeVar);
+    btn.classList.add('active'); activeVar=btn.dataset.var;
+    if(weatherData[activeSensor.id]) renderChart(weatherData[activeSensor.id], activeVar);
   });
 });
-
 document.querySelectorAll('.sensor-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.sensor-tab').forEach(t=>t.classList.remove('active'));
     tab.classList.add('active');
-    activeSensor = SENSORS.find(s=>s.id===tab.dataset.id);
+    activeSensor=SENSORS.find(s=>s.id===tab.dataset.id);
     loadSensor(activeSensor);
   });
 });
 
-async function loadSensor(sensor) {
-  document.getElementById('chartLoading').style.display = 'flex';
-  document.getElementById('mainChart').style.display = 'none';
-  let data = weatherData[sensor.id];
-  if (!data) {
-    data = await fetchWeather(sensor);
-    if (data) weatherData[sensor.id] = data;
-  }
-  if (data?.hourly) {
-    updateStats(data);
-    renderChart(data, activeVar);
-    addTxItem('record', sensor.id, `fetchObs() — ${sensor.city} @ ${new Date().toTimeString().slice(0,5)}`);
-  } else {
-    document.getElementById('chartLoading').innerHTML =
-      `<div style="font-family:var(--mono);font-size:.7rem;color:var(--red);text-align:center">
-        ⚠ BOM API unavailable<br><small style="color:var(--text3)">Check network or try again</small>
-      </div>`;
-  }
-}
+function showToast(msg,type='info'){const t=document.createElement('div');t.className=`toast ${type}`;t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),4000);}
+function shortAddr(a){return a?a.slice(0,6)+'…'+a.slice(-4):'';}
+function updateClock(){document.getElementById('footerTime').textContent=new Date().toUTCString().replace('GMT','UTC');}
+setInterval(updateClock,1000);updateClock();
+window.addEventListener('resize',()=>{if(weatherData[activeSensor.id])renderChart(weatherData[activeSensor.id],activeVar);});
 
-function updateClock() { document.getElementById('footerTime').textContent = new Date().toUTCString().replace('GMT','UTC'); }
-setInterval(updateClock, 1000); updateClock();
-window.addEventListener('resize', () => { if (weatherData[activeSensor.id]) renderChart(weatherData[activeSensor.id], activeVar); });
-
+// ===================== INIT =====================
 seedTxFeed();
 scheduleRecordTx();
-loadSensor(activeSensor);
+
+(async () => {
+  try {
+    await Promise.all(SENSORS.map(s => fetchWeather(s).then(d => { if (d) weatherData[s.id] = d; })));
+    const d = weatherData[activeSensor.id];
+    if (d?.hourly) {
+      updateStats(d);
+      renderChart(d, activeVar);
+      addTxItem('record', activeSensor.id, `fetchObs() — ${activeSensor.city} @ ${new Date().toTimeString().slice(0,5)}`);
+    }
+  } catch(err) { console.error('[ENLIL] Init error:', err); }
+})();
 </script>
 </body>
 </html>
