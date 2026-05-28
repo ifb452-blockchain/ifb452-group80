@@ -102,6 +102,6 @@ python -m http.server 8080
 # Improvements:
 - The project could be improved by connecting a database to the back end so that recordings can be stored and retrieved to verify transactions. Currently limited to viewing only the most recent, as a proof-of-concept.  
 - Deploying real-world sensors instead of using API data would be the ideal situation for this project as using API data is only adequate for this proof-of-concept project.
-# Store weather hashes / recording on IFPS network (think you mentioned it above? I can write more about it here if not.) 
-Tutor Feedback:
-Upon feedback from the progress implementation, it has come to our attention that having all the off-chain data stored onto the database is a major issue as it is a single point of failure. Therefore, following our feedback it is advised that in future implementations of this application you would utilise a portion of the data servers’ resources to contributing to the IPFS project (https://ipfs.tech/) as it would allow the most important in demand data to be accessed and protected in the event of the off chain system’s failure.
+
+# Tutor Feedback:
+- Upon feedback from the progress implementation, it has come to our attention that having all the off-chain data stored onto the database is a major issue as it is a single point of failure. Therefore, following our feedback it is advised that in future implementations of this application you would utilise a portion of the data servers’ resources to contributing to the IPFS project (https://ipfs.tech/) as it would allow the most important in demand data to be accessed and protected in the event of the off chain system’s failure.
