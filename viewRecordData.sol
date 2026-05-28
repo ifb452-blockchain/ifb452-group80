@@ -28,7 +28,7 @@ interface IWeatherData {
         uint pressure;      // Atmospheric pressure reading
         uint temp;          // Temperature reading
         uint timestamp;     // Block timestamp or Unix epoch time of log
-        bytes32 weatherHash;// Cryptographic signature verifying off-chain raw file data
+        bytes32 weatherHash;// Cryptographic signature verifying off-chain raw file/record data
     }
 
     // Fetches the entire array of historical entries for a sensor
@@ -153,7 +153,7 @@ contract viewRecordData {
     }
 
     // ─── Verify a Hash ───────────────────────────────────────
-    // Searches history to confirm if an off-chain data file's hash matches an on-chain record
+    // Searches history to confirm if an off-chain data file/record's hash matches an on-chain record
     function verifyHash(uint _sensorId, bytes32 _hash)
         external view
         returns (bool found, uint recordIndex, uint timestamp)
