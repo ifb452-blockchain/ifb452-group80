@@ -73,7 +73,7 @@ Not chosen for any particular reason, just used as it sufficed for our needs.
 Python localhost:
 python -m http.server 8080
 
-Project overview 
+# Project overview 
 
 # What it is, what it should do, why is it needed?
 - Enlil is a weather observation application. Connected via LoRaWAN, an array of sensors captures weather events in strategic locations. By combining a decentralised application (dApp) with real-world weather observations, Enlil aims to provide accurate and immutable historical weather data that can be used by different stakeholders to inform policy decisions. The goal was to introduce an immutable record of historical weather trends to accurately predict and mitigate future adverse weather events. 
