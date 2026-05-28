@@ -65,21 +65,6 @@ Step 2: Remix detects the change
 Step 3: Can now register another sensor using the tech wallet
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- #####################################################################
 Techstack:
 API used to imitate accurate locational data from physical sensors: https://open-meteo.com/en/docs 
 Documentation on how to use the API are above and will be ideally replaced in future by the implementation of physical weather sensors.
