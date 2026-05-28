@@ -98,7 +98,7 @@ Project overview
 - Stakeholders for this project would be anybody with an interest in tracking 	weather events. The stakeholders who would be the main beneficiaries of this project would be Government agencies (such as the Department of Natural Resources and Mines, Manufacturing and Regional and Rural Development), insurance companies (actuaries, in particular) due to their need for uncompromised and verifiable data.
 
 # Why a blockchain? 
-	- Due to the need for transparency within Government and, less so, insurance agencies, a blockchain provides an easy way for multiple stakeholders to verify and utilise any recorded data. The project uses a Public Permissioned Blockchain due to the nature of the recordings coming from multiple different sources. Through the utilisation of this specific type of blockchain we minimise the chance that a malicious actor could alter weather recordings surreptitiously. 
+- Due to the need for transparency within Government and, less so, insurance agencies, a blockchain provides an easy way for multiple stakeholders to verify and utilise any recorded data. The project uses a Public Permissioned Blockchain due to the nature of the recordings coming from multiple different sources. Through the utilisation of this specific type of blockchain we minimise the chance that a malicious actor could alter weather recordings surreptitiously. 
 
 
 
