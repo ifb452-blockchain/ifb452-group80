@@ -3,14 +3,16 @@ IFB452 Group 80 IoT Weather Observation Blockchain Project
 # Project overview 
 
 Table of Contents:
-1.1	Project Overview
-1.2	How to run
-1.3	Contracts
-1.4	Features
-1.5	Limitations
-1.6	Improvements
-1.7	References
-1.2 HOW TO RUN:
+-1.1	Project Overview
+-1.2	How to run
+-1.3	Contracts
+-1.4	Features
+-1.5	Limitations
+-1.6	Improvements
+-1.7	References
+
+HOW TO RUN:
+
 Step 0:
 Navigate to the root directory of the project in your terminal and host locally using python with the command below (or utilise an alternative method):
 python -m http.server 8080
